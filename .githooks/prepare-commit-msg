@@ -1,0 +1,7 @@
+#!/bin/sh
+
+set -eu
+
+hook_directory=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+repository_root=$(CDPATH= cd -- "$hook_directory/.." && pwd -P)
+exec "$repository_root/scripts/versioning/stamp-message.sh" "$1" "$repository_root/VERSION"

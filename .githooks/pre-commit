@@ -1,0 +1,10 @@
+#!/bin/sh
+
+set -eu
+
+hook_directory=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+repository_root=$(CDPATH= cd -- "$hook_directory/.." && pwd -P)
+cd "$repository_root"
+
+scripts/versioning/version.sh bump VERSION "$(date -u +%y%m%d)"
+git add -- VERSION
