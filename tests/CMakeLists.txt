@@ -28,7 +28,10 @@ add_executable(reggaewave_tests
     audio/ConversionPipelineTests.cpp
     audio/SubtitleManagerTests.cpp
     audio/LyricVisualizerTests.cpp
+    audio/AudioMastererTests.cpp
+    audio/AudioExporterTests.cpp
     storage/LocalDatabaseTests.cpp
+    storage/RetentionManagerTests.cpp
 )
 
 target_link_libraries(reggaewave_tests PRIVATE
