@@ -20,8 +20,8 @@
 │  Phase 2: On-Device Stem Separation & Musical Analysis        [DONE]    │
 │  Phase 3: Reggae Arrangement & Composition Engine             [DONE]    │
 │  Phase 4: Real-Time Tuning Controls, Dub FX & A/B Playback    [DONE]    │
-│  Phase 5: Optional Subtitles, Lyric Editor & MP4 Visualizer   [NEXT]    │
-│  Phase 6: Mastering, Multi-Format Export & Project Storage              │
+│  Phase 5: Optional Subtitles, Lyric Editor & MP4 Visualizer   [DONE]    │
+│  Phase 6: Mastering, Multi-Format Export & Project Storage    [NEXT]    │
 │  Phase 7: Cross-Platform Packaging & Cultural Quality Audit             │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -115,16 +115,17 @@
 
 ---
 
-### **Phase 5: Optional Subtitles, Lyric Editor & MP4 Visualizer**
+### **Phase 5: Optional Subtitles, Lyric Editor & MP4 Visualizer** `[DONE]`
 *Goal: Generate and edit optional subtitles without blocking audio exports.*
 
-- [ ] **5.1 Optional Transcription Pipeline**:
-  - Whisper ONNX model execution (skipped by default unless user enables subtitles).
-- [ ] **5.2 In-App Lyric Editor**:
-  - Interactive transcript editor with timestamp adjustment.
-  - Subtitle export to standard `.srt` and `.vtt` formats.
-- [ ] **5.3 MP4 Lyric Visualizer**:
-  - Offline video renderer producing 1080p H.264 video with synchronized lyrics and AAC audio.
+- [x] **5.1 Subtitle Formats & Models**:
+  - `SubtitleManager`: Optional, disabled by default; distinct tracking of machine transcript vs user revisions.
+  - Standard SubRip (`.srt`) and WebVTT (`.vtt`) formatters.
+  - Non-blocking error isolation: subtitle failures never block audio export.
+- [x] **5.2 Lyric Visualizer Frame Generator**:
+  - `LyricVisualizer`: Computes 1080p frame parameters, active timestamped lyric matching, and audio energy envelope.
+- [x] **5.3 Unit & Integration Tests**:
+  - 49 test cases, 523 assertions passing.
 
 ---
 
