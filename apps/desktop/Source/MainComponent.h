@@ -6,14 +6,18 @@
 #include <reggaewave/contracts/JobState.hpp>
 #include <reggaewave/contracts/TuningParameters.hpp>
 #include <reggaewave/contracts/RightsAttestation.hpp>
-#include <reggaewave/audio/DualTransportSource.hpp>
-#include <reggaewave/audio/DubEffectsProcessor.hpp>
+#include <reggaewave/audio/ConversionPipeline.hpp>
+#include <reggaewave/audio/AudioDecoder.hpp>
+#include <reggaewave/audio/AudioExporter.hpp>
+#include <reggaewave/audio/AudioMasterer.hpp>
 
 #include "UI/ReggaeWaveTheme.h"
 #include "UI/TuningPanel.h"
 #include "UI/WaveformABView.h"
 #include "UI/RightsAttestationModal.h"
 #include "UI/LyricEditorView.h"
+
+#include <memory>
 
 namespace reggaewave::desktop {
 
@@ -33,15 +37,18 @@ public:
 private:
     void handleImportRequested();
     void handleRightsConfirmed(contracts::RightsBasis basis);
+    void processImportedFile(const juce::File& file);
     void handleExportRequested();
     void togglePlayback();
 
     // Custom Theme
     ui::ReggaeWaveTheme theme_;
 
-    // Core Audio & DSP
+    // Transformation Pipeline & DSP
+    audio::ConversionPipeline pipeline_;
     audio::DualTransportSource dualTransport_;
     audio::DubEffectsProcessor dubProcessor_;
+    contracts::TuningParameters currentTuning_{50, 0, 0.0};
 
     // UI Header
     juce::Label appTitleLabel_;
@@ -57,6 +64,7 @@ private:
     ui::TuningPanel tuningPanel_;
     ui::LyricEditorView lyricEditor_;
     std::unique_ptr<ui::RightsAttestationModal> rightsModal_;
+    std::unique_ptr<juce::FileChooser> fileChooser_;
 
     bool isPlaying_ = false;
     contracts::ConversionJobState currentState_ = contracts::ConversionJobState::Created;

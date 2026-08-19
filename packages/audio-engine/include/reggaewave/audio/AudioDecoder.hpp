@@ -7,6 +7,9 @@
 #include <cstring>
 #include <stdexcept>
 #include <algorithm>
+#include <array>
+#include <memory>
+#include <cstdio>
 
 namespace reggaewave::audio {
 
@@ -19,12 +22,44 @@ struct DecodedAudio {
 };
 
 /**
- * @brief Pure C++ audio file decoder for PCM WAV files with header parsing.
+ * @brief Pure C++ audio file decoder with native multi-format (M4A/MP3/FLAC/WAV) support.
  */
 class AudioDecoder {
 public:
     /**
-     * @brief Decodes a PCM WAV file from raw byte buffer or file path.
+     * @brief Decodes any audio file (WAV directly, M4A/MP3/FLAC via ffmpeg).
+     */
+    static DecodedAudio decodeAnyAudioFile(const std::string& filePath) {
+        // 1. Try direct WAV decode
+        try {
+            return decodeWavFile(filePath);
+        } catch (...) {
+            // Fall back to ffmpeg pipe transcoding
+        }
+
+        // 2. Transcode via ffmpeg to standard 44.1 kHz 16-bit stereo WAV in memory
+        std::string cmd = "ffmpeg -v quiet -i \"" + filePath + "\" -f wav -ac 2 -ar 44100 -c:a pcm_s16le -";
+        std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
+        if (!pipe) {
+            throw std::runtime_error("Failed to invoke audio decoder for: " + filePath);
+        }
+
+        std::vector<uint8_t> wavBuffer;
+        std::array<uint8_t, 8192> chunk;
+        size_t bytesRead = 0;
+        while ((bytesRead = fread(chunk.data(), 1, chunk.size(), pipe.get())) > 0) {
+            wavBuffer.insert(wavBuffer.end(), chunk.begin(), chunk.begin() + bytesRead);
+        }
+
+        if (wavBuffer.size() < 44) {
+            throw std::runtime_error("Could not decode audio file: " + filePath);
+        }
+
+        return decodeWavBytes(wavBuffer.data(), wavBuffer.size());
+    }
+
+    /**
+     * @brief Decodes a PCM WAV file from raw byte buffer.
      */
     static DecodedAudio decodeWavBytes(const uint8_t* data, size_t sizeBytes) {
         if (!data || sizeBytes < 44) {

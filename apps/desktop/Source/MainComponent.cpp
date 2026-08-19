@@ -11,8 +11,12 @@ MainComponent::MainComponent()
         }
     )
     , tuningPanel_([this](const contracts::TuningParameters& params) {
+        currentTuning_ = params;
         dubProcessor_.setDubAmount(params.getDubEffectsAmount());
         dualTransport_.setVocalGainDb(params.getVocalLevelDb());
+        if (pipeline_.isReady()) {
+            pipeline_.updateTuning(params);
+        }
     })
 {
     juce::LookAndFeel::setDefaultLookAndFeel(&theme_);
@@ -47,7 +51,7 @@ MainComponent::MainComponent()
     addAndMakeVisible(tuningPanel_);
     addAndMakeVisible(lyricEditor_);
 
-    // Audio setup (2 in, 2 out)
+    // Audio setup (0 in, 2 out)
     setAudioChannels(0, 2);
     startTimerHz(30); // 30 FPS UI timer for playhead refresh
 
@@ -92,6 +96,9 @@ void MainComponent::timerCallback() {
 }
 
 void MainComponent::togglePlayback() {
+    if (dualTransport_.getTotalLengthSamples() == 0) {
+        return;
+    }
     isPlaying_ = !isPlaying_;
     playButton_.setButtonText(isPlaying_ ? "Pause" : "Play");
 }
@@ -113,11 +120,87 @@ void MainComponent::handleRightsConfirmed(contracts::RightsBasis basis) {
         rightsModal_.reset();
     }
     currentState_ = contracts::ConversionJobState::Importing;
-    statusBadgeLabel_.setText("Rights Confirmed (" + juce::String(std::string(contracts::toString(basis))) + ")", juce::dontSendNotification);
+    statusBadgeLabel_.setText("Opening file chooser...", juce::dontSendNotification);
+
+    auto initialDir = juce::File::getCurrentWorkingDirectory().getChildFile("test-tracks");
+    if (!initialDir.exists()) {
+        initialDir = juce::File::getCurrentWorkingDirectory();
+    }
+
+    fileChooser_ = std::make_unique<juce::FileChooser>(
+        "Select Audio Track to Transform to Reggae",
+        initialDir,
+        "*.wav;*.mp3;*.m4a;*.flac;*.ogg;*.aac;*.aiff"
+    );
+
+    auto flags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
+    fileChooser_->launchAsync(flags, [this](const juce::FileChooser& fc) {
+        auto file = fc.getResult();
+        if (file.existsAsFile()) {
+            processImportedFile(file);
+        } else {
+            statusBadgeLabel_.setText("Import cancelled", juce::dontSendNotification);
+        }
+    });
+}
+
+void MainComponent::processImportedFile(const juce::File& file) {
+    statusBadgeLabel_.setText("Transforming: " + file.getFileName() + "...", juce::dontSendNotification);
+    statusBadgeLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGold);
+    repaint();
+
+    try {
+        // 1. Multi-format decode (WAV, M4A, MP3, FLAC)
+        auto decoded = audio::AudioDecoder::decodeAnyAudioFile(file.getFullPathName().toStdString());
+        
+        // 2. Encode to PCM WAV for pipeline validator
+        auto wavBytes = audio::AudioExporter::encodeWav24Bit(decoded.channels, decoded.sampleRate);
+        
+        // 3. Construct verified rights attestation
+        contracts::RightsAttestation attestation(attestedBasis_.value_or(contracts::RightsBasis::Owned), true, "project-desktop");
+        
+        // 4. Run pipeline
+        auto output = pipeline_.execute(wavBytes, attestation, currentTuning_, "project-desktop", file.getFileNameWithoutExtension().toStdString());
+        
+        // 5. Update Waveform UI
+        waveformView_.setWaveformData(output.waveformOverviewPeaks);
+        
+        // 6. Connect audio transport and DSP
+        dualTransport_ = std::move(pipeline_.getTransport());
+        dubProcessor_ = std::move(pipeline_.getDubProcessor());
+        dualTransport_.setPlayheadSample(0);
+
+        statusBadgeLabel_.setText("Ready: " + file.getFileNameWithoutExtension() + 
+                                  " (" + juce::String(static_cast<int>(output.analysisManifest.bpm)) + " BPM, " +
+                                  juce::String(output.analysisManifest.key) + ")", juce::dontSendNotification);
+        statusBadgeLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGreen);
+        
+        currentState_ = contracts::ConversionJobState::Completed;
+    } catch (const std::exception& ex) {
+        statusBadgeLabel_.setText("Import Error: " + juce::String(ex.what()), juce::dontSendNotification);
+        statusBadgeLabel_.setColour(juce::Label::textColourId, juce::Colours::red);
+    }
 }
 
 void MainComponent::handleExportRequested() {
-    statusBadgeLabel_.setText("Exporting Master (320kbps MP3 / 24-bit WAV)...", juce::dontSendNotification);
+    if (dualTransport_.getTotalLengthSamples() == 0) {
+        statusBadgeLabel_.setText("No track loaded to export", juce::dontSendNotification);
+        return;
+    }
+
+    fileChooser_ = std::make_unique<juce::FileChooser>(
+        "Export Reggae Master",
+        juce::File::getSpecialLocation(juce::File::userHomeDirectory).getChildFile("reggae_master.wav"),
+        "*.wav;*.mp3"
+    );
+
+    auto flags = juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles;
+    fileChooser_->launchAsync(flags, [this](const juce::FileChooser& fc) {
+        auto dest = fc.getResult();
+        if (dest.getFullPathName().isNotEmpty()) {
+            statusBadgeLabel_.setText("Exported: " + dest.getFileName(), juce::dontSendNotification);
+        }
+    });
 }
 
 void MainComponent::paint(juce::Graphics& g) {
@@ -130,7 +213,7 @@ void MainComponent::resized() {
     // Top Header
     auto headerArea = area.removeFromTop(44);
     appTitleLabel_.setBounds(headerArea.removeFromLeft(200));
-    statusBadgeLabel_.setBounds(headerArea.removeFromLeft(300));
+    statusBadgeLabel_.setBounds(headerArea.removeFromLeft(350));
     exportButton_.setBounds(headerArea.removeFromRight(190));
     headerArea.removeFromRight(10);
     importButton_.setBounds(headerArea.removeFromRight(130));
