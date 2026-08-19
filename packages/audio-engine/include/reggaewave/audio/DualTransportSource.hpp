@@ -46,7 +46,7 @@ public:
     }
 
     void setActiveVariation(ActiveVariation target) {
-        if (targetVariation_ != target) {
+        if (activeVariation_ != target) {
             targetVariation_ = target;
             crossfadeProgress_ = 0;
             isCrossfading_ = true;
@@ -54,7 +54,7 @@ public:
     }
 
     [[nodiscard]] ActiveVariation getActiveVariation() const noexcept {
-        return targetVariation_;
+        return activeVariation_;
     }
 
     void setVocalGainDb(double vocalGainDb) {

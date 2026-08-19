@@ -8,7 +8,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Sub-packages
 add_subdirectory(packages/contracts)
 add_subdirectory(packages/audio-engine)
-add_subdirectory(packages/audio-fixtures)
 add_subdirectory(packages/storage)
 
 # Optional test building
@@ -23,6 +22,3 @@ option(REGGAEWAVE_BUILD_DESKTOP "Build ReggaeWave desktop application" ON)
 if(REGGAEWAVE_BUILD_DESKTOP AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/apps/desktop/CMakeLists.txt")
     add_subdirectory(apps/desktop)
 endif()
-
-# Packaging Configuration
-include("${CMAKE_CURRENT_SOURCE_DIR}/infra/packaging/CPackConfig.cmake")
