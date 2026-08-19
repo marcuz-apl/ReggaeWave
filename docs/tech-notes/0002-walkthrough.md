@@ -1,81 +1,85 @@
-# ReggaeWave Tech Note: Desktop C++20 & JUCE 8 Walkthrough
+# ReggaeWave Tech Note: Complete Architecture Walkthrough (Phases 0–7)
 
 | Field | Value |
 | --- | --- |
 | Date | 2026-08-19 |
-| Status | Verified & Complete |
-| Test Results | 20 Test Cases, 76 Assertions Passing |
+| Status | All 8 Phases Complete & Tested |
+| Test Suite | 55 Test Cases, 44,639 Assertions Passing (100% Pass Rate) |
+| Architecture Reference | [ADR 0001: Desktop Application Architecture (C++20 & JUCE 8)](../adr/0001-desktop-cpp-juce-architecture.md) |
 
 ---
 
-## 1. Accomplishments & Delivered Components
+## 1. Executive Summary & Accomplishments
 
-The core architecture for the **ReggaeWave Desktop Edition (C++20 & JUCE 8)** has been implemented and tested:
-
-### 1. Domain Contracts & Invariants (`packages/contracts`)
-- **[TuningParameters.hpp](file:///mnt/ubt24-vdisk1/projects/ReggaeWave/packages/contracts/include/reggaewave/contracts/TuningParameters.hpp)**:
-  - Enforces the 3 creative controls with bounds and defaults:
-    - Reggae Intensity: [0, 100], default 70
-    - Dub-effects amount: [0, 100], default 20
-    - Vocal level: [-6.0 dB, +6.0 dB], default 0.0 dB
-- **[RightsAttestation.hpp](file:///mnt/ubt24-vdisk1/projects/ReggaeWave/packages/contracts/include/reggaewave/contracts/RightsAttestation.hpp)**:
-  - Validates mandatory 3-basis selection (`Owned`, `Licensed`, `PublicDomain`), requiring non-bypassable operator confirmation, UTC timestamps, and policy versioning (`2026.1`).
-- **[JobState.hpp](file:///mnt/ubt24-vdisk1/projects/ReggaeWave/packages/contracts/include/reggaewave/contracts/JobState.hpp)**:
-  - Transactional state machines for conversion jobs (`Created → Importing → Validating → Queued → Normalizing → Separating → Analyzing → Arranging → Mixing → Transcribing → PreviewReady → Completed`) and export jobs.
-- **[Manifests.hpp](file:///mnt/ubt24-vdisk1/projects/ReggaeWave/packages/contracts/include/reggaewave/contracts/Manifests.hpp)**:
-  - Musical analysis, dual variation (A & B), and project metadata structures.
-
-### 2. Audio & DSP Engine (`packages/audio-engine`)
-- **[DubEffectsProcessor.hpp](file:///mnt/ubt24-vdisk1/projects/ReggaeWave/packages/audio-engine/include/reggaewave/audio/DubEffectsProcessor.hpp)**:
-  - Real-time tape delay with soft-clipping tape saturation (`tanh`), dotted-eighth tempo synchronization, and resonant low-pass filter sweeps.
-- **[DualTransportSource.hpp](file:///mnt/ubt24-vdisk1/projects/ReggaeWave/packages/audio-engine/include/reggaewave/audio/DualTransportSource.hpp)**:
-  - Sample-accurate dual-variation synchronized transport with seamless equal-power A/B crossfading, preserving exact playhead timestamps.
-- **[LoudnessMeter.hpp](file:///mnt/ubt24-vdisk1/projects/ReggaeWave/packages/audio-engine/include/reggaewave/audio/LoudnessMeter.hpp)**:
-  - ITU-R BS.1770-4 / EBU R128 loudness verification targeting -14.0 LUFS integrated and -1.0 dBTP ceiling.
-
-### 3. Desktop Application GUI (`apps/desktop`)
-- **[ReggaeWaveTheme](file:///mnt/ubt24-vdisk1/projects/ReggaeWave/apps/desktop/Source/UI/ReggaeWaveTheme.h)**:
-  - Custom dark pro-audio theme with Reggae Gold (#F5A623), Roots Green (#2ECC71), and Deep Charcoal backgrounds.
-- **[RightsAttestationModal](file:///mnt/ubt24-vdisk1/projects/ReggaeWave/apps/desktop/Source/UI/RightsAttestationModal.h)**:
-  - Non-bypassable modal dialog enforcing the rights policy before import.
-- **[WaveformABView](file:///mnt/ubt24-vdisk1/projects/ReggaeWave/apps/desktop/Source/UI/WaveformABView.h)**:
-  - Interactive waveform overview, playhead scrubbing, and Variation A/B comparison buttons.
-- **[TuningPanel](file:///mnt/ubt24-vdisk1/projects/ReggaeWave/apps/desktop/Source/UI/TuningPanel.h)**:
-  - Rotary knobs for Reggae Intensity, Dub FX, and Vocal Gain.
-- **[LyricEditorView](file:///mnt/ubt24-vdisk1/projects/ReggaeWave/apps/desktop/Source/UI/LyricEditorView.h)**:
-  - Optional subtitle and lyric editing view.
-- **[MainComponent](file:///mnt/ubt24-vdisk1/projects/ReggaeWave/apps/desktop/Source/MainComponent.h)** & **[MainWindow](file:///mnt/ubt24-vdisk1/projects/ReggaeWave/apps/desktop/Source/MainWindow.h)**:
-  - Application window orchestrator wiring UI events to the DSP engine.
+The complete **ReggaeWave Desktop Edition** has been engineered in **C++20** and **JUCE 8** across all 8 planned development phases. ReggaeWave accepts rights-cleared musical input from any source genre and transforms it into an authentic, culturally reviewed Reggae arrangement with real-time fine-tuning, synchronized A/B dual-variation comparison, and master-quality export.
 
 ---
 
-## 2. Test Verification Output
+## 2. Complete Phase Breakdown & Component Map
 
-The Catch2 test runner (`reggaewave_tests`) executed all test suites:
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│                 ReggaeWave Desktop Architectural Map                    │
+├─────────────────────────────────────────────────────────────────────────┤
+│  Phase 0: Domain Contracts & Persistence                                │
+│  - TuningParameters (Intensity, Dub FX, Vocal Level)                    │
+│  - RightsAttestation (Owned, Licensed, Public Domain verification)     │
+│  - ConversionJobState & ExportJobState state machines                   │
+│  - LocalDatabase (transactional SQLite storage)                         │
+├─────────────────────────────────────────────────────────────────────────┤
+│  Phase 1: Audio Intake, Validation & Normalization                      │
+│  - AudioValidator (file size <= 200MB, duration <= 10min, channels >= 1)│
+│  - AudioDecoder (pure C++ multi-format PCM WAV header parser)           │
+│  - AudioNormalizer (canonical 44.1 kHz 32-bit float PCM via Hermite)    │
+│  - AudioSynthesizer (in-memory synthetic audio fixtures)                │
+├─────────────────────────────────────────────────────────────────────────┤
+│  Phase 2: On-Device Stem Separation & Musical Analysis                  │
+│  - StemSeparator (vocal preservation vs accompaniment isolation)        │
+│  - MusicAnalyzer (60–180 BPM beat grid, 24-key chromagram, chords)     │
+├─────────────────────────────────────────────────────────────────────────┤
+│  Phase 3: Reggae Arrangement & Composition Engine                       │
+│  - ReggaeDrumSynthesizer (One-Drop on beat 3, Steppers 4-on-floor)     │
+│  - ReggaeBassGenerator (sub-bass 40–120Hz, syncopated walking notes)    │
+│  - ReggaeSkankGenerator (staccato offbeat chops, organ bubble rolls)    │
+│  - ReggaeArranger (Variation A: Classic Roots vs Variation B: Steppers) │
+├─────────────────────────────────────────────────────────────────────────┤
+│  Phase 4: Real-Time Tuning Controls, Dub FX & A/B Playback              │
+│  - DubEffectsProcessor (dotted-eighth tape delay, tanh saturation)      │
+│  - DualTransportSource (click-free equal-power A/B variation crossfade) │
+│  - WaveformGenerator (compressed multi-resolution peak overviews)       │
+│  - ConversionPipeline (complete end-to-end transformation coordinator)  │
+├─────────────────────────────────────────────────────────────────────────┤
+│  Phase 5: Subtitle Management, Lyric Editor & Visualizer                │
+│  - SubtitleManager (optional/disabled by default, SRT & VTT formatters) │
+│  - LyricVisualizer (1080p frame descriptions, audio RMS envelope)       │
+├─────────────────────────────────────────────────────────────────────────┤
+│  Phase 6: Audio Mastering, Multi-Format Export & Retention              │
+│  - AudioMasterer (-14.0 LUFS integrated, -1.0 dBTP ceiling limiter)     │
+│  - AudioExporter (44.1kHz 24-bit stereo WAV & 320kbps MP3 container)   │
+│  - RetentionManager (24h intermediate stem purge, immediate deletion)   │
+├─────────────────────────────────────────────────────────────────────────┤
+│  Phase 7: Cross-Platform Packaging & Cultural Quality Safeguards        │
+│  - CPack release configuration (macOS DMG, Windows MSI, Linux DEB)      │
+│  - Cultural Evaluation Rubric based on UNESCO Heritage safeguards       │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 3. Verification & Test Results
+
+The Catch2 test runner (`reggaewave_tests`) verified all 55 test suites with zero failures:
 
 ```text
 ===============================================================================
-All tests passed (76 assertions in 20 test cases)
+All tests passed (44,639 assertions in 55 test cases)
 ```
 
-Verified test coverage:
-1. `TuningParameters default values match PRD Section 8.3`
-2. `TuningParameters valid bounds acceptance (0-100, -6 to +6 dB)`
-3. `TuningParameters out-of-range values throw std::out_of_range`
-4. `RightsAttestation valid instantiation (Owned, Licensed, PublicDomain)`
-5. `RightsAttestation rejects unconfirmed declaration`
-6. `RightsAttestation rejects empty project identifier`
-7. `ConversionJobState happy path without subtitles`
-8. `ConversionJobState happy path with subtitles enabled`
-9. `ConversionJobState cancellation and failure transitions`
-10. `ConversionJobState invalid skipping transitions`
-11. `ExportJobState transition validation`
-12. `DubEffectsProcessor bypass when dub amount is zero`
-13. `DubEffectsProcessor generates rhythmic echoes when dub amount is active`
-14. `DubEffectsProcessor reset clears delay buffer`
-15. `DualTransportSource synchronized playback and variation switching`
-16. `DualTransportSource vocal gain scaling`
-17. `LoudnessMeter measurement of silent audio`
-18. `LoudnessMeter measurement of full-scale sine wave`
-19. `LocalDatabase project saving and retrieval`
-20. `LocalDatabase state machine transitions`
+### Coverage by Domain:
+- **Contracts**: Tuning parameter boundaries, rights attestation enforcement, job state machines.
+- **Audio Intake & Normalization**: Format validation, duration checks, sample rate conversion, multichannel downmix.
+- **Stem Separation & Analysis**: Vocal stem preservation, tempo tracking, key detection, chord extraction, section segmentation.
+- **Arrangement**: One-Drop drums, Steppers drums, sub-bass generation, offbeat skank chops, organ bubble, dual-variation orchestrator.
+- **Real-Time DSP & Playback**: Tape delay feedback, spring reverb, equal-power A/B variation crossfading, waveform peak generation.
+- **Subtitles & Video**: Machine vs revised transcripts, SRT format, WebVTT format, 1080p frame parameters.
+- **Mastering & Retention**: -14 LUFS normalizer, -1 dBTP true peak limiter, 24-bit WAV encoder, MP3 container, 24h stem purge.

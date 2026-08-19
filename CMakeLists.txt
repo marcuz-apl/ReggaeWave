@@ -23,3 +23,6 @@ option(REGGAEWAVE_BUILD_DESKTOP "Build ReggaeWave desktop application" ON)
 if(REGGAEWAVE_BUILD_DESKTOP AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/apps/desktop/CMakeLists.txt")
     add_subdirectory(apps/desktop)
 endif()
+
+# Packaging Configuration
+include("${CMAKE_CURRENT_SOURCE_DIR}/infra/packaging/CPackConfig.cmake")
