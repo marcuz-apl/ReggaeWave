@@ -20,6 +20,10 @@ add_executable(reggaewave_tests
     audio/AudioNormalizerTests.cpp
     audio/StemSeparatorTests.cpp
     audio/MusicAnalyzerTests.cpp
+    audio/ReggaeDrumSynthesizerTests.cpp
+    audio/ReggaeBassGeneratorTests.cpp
+    audio/ReggaeSkankGeneratorTests.cpp
+    audio/ReggaeArrangerTests.cpp
     storage/LocalDatabaseTests.cpp
 )
 
