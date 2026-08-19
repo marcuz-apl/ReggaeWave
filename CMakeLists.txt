@@ -8,6 +8,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Sub-packages
 add_subdirectory(packages/contracts)
 add_subdirectory(packages/audio-engine)
+add_subdirectory(packages/audio-fixtures)
 add_subdirectory(packages/storage)
 
 # Optional test building

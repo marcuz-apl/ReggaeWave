@@ -15,6 +15,9 @@ add_executable(reggaewave_tests
     audio/DubEffectsTests.cpp
     audio/DualTransportTests.cpp
     audio/LoudnessMeterTests.cpp
+    audio/AudioValidatorTests.cpp
+    audio/AudioDecoderTests.cpp
+    audio/AudioNormalizerTests.cpp
     storage/LocalDatabaseTests.cpp
 )
 
@@ -22,6 +25,7 @@ target_link_libraries(reggaewave_tests PRIVATE
     Catch2::Catch2WithMain
     reggaewave_contracts
     reggaewave_audio_engine
+    reggaewave_audio_fixtures
     reggaewave_storage
 )
 

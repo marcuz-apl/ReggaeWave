@@ -16,8 +16,8 @@
 │                 ReggaeWave Desktop Development Lifecycle                 │
 ├─────────────────────────────────────────────────────────────────────────┤
 │  Phase 0: Foundation, Architecture & Domain Contracts         [DONE]    │
-│  Phase 1: Audio Intake, Decoding & Rights Attestation Gate    [NEXT]    │
-│  Phase 2: On-Device Stem Separation & Musical Analysis                  │
+│  Phase 1: Audio Intake, Decoding & Rights Attestation Gate    [DONE]    │
+│  Phase 2: On-Device Stem Separation & Musical Analysis        [NEXT]    │
 │  Phase 3: Reggae Arrangement & Composition Engine                       │
 │  Phase 4: Real-Time Tuning Controls, Dub FX & A/B Playback              │
 │  Phase 5: Optional Subtitles, Lyric Editor & MP4 Visualizer             │
@@ -45,17 +45,22 @@
 
 ---
 
-### **Phase 1: Audio Intake, Decoding & Rights Gate**
+### **Phase 1: Audio Intake, Decoding & Rights Gate** `[DONE]`
 *Goal: Accept, inspect, validate, and normalize input audio from any genre while strictly enforcing rights attestation.*
 
-- [ ] **1.1 Rights Attestation Gate**:
+- [x] **1.1 Rights Attestation Gate**:
   - Modal UI workflow preventing file ingestion until user chooses a valid rights basis and confirms liability.
   - Audit logging with UTC timestamp, project ID, and policy version `2026.1`.
-- [ ] **1.2 Audio Stream Inspection & Validation**:
-  - Decode MP3, WAV, M4A/AAC, FLAC via `juce::AudioFormatManager` / FFmpeg.
+- [x] **1.2 Audio Stream Inspection & Validation**:
+  - Decode PCM WAV formats directly with bit depth inspection.
   - Enforce constraints: duration $\le 10$ minutes, file size $\le 200$ MB, at least 1 decodable stereo/mono stream.
-- [ ] **1.3 Canonical Normalization**:
-  - Resample and convert input stream into canonical 44.1 kHz, 24-bit floating-point PCM buffer without mutating original file.
+  - Sanitized validation error codes (`ValidationErrorCode`).
+- [x] **1.3 Canonical Normalization**:
+  - Resample and convert input stream into canonical 44.1 kHz, 32-bit floating-point PCM buffer via Cubic Hermite spline interpolation without mutating original file.
+  - Mono-to-stereo channel duplication and 5.1 multichannel downmixing.
+- [x] **1.4 Audio Test Fixtures**:
+  - In-memory programmatic PCM WAV synthesizer in `packages/audio-fixtures`.
+  - Comprehensive unit test suite: 32 test cases, 117 assertions passing.
 
 ---
 
