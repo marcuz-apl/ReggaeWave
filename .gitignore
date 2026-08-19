@@ -4,3 +4,12 @@ CMakeUserPresets.json
 compile_commands.json
 .vscode/
 .idea/
+
+# Local test media (kept out of Git history)
+test-tracks/
+*.wav
+*.mp3
+*.flac
+*.m4a
+*.ogg
+*.aac
