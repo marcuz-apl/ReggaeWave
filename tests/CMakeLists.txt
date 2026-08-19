@@ -24,6 +24,8 @@ add_executable(reggaewave_tests
     audio/ReggaeBassGeneratorTests.cpp
     audio/ReggaeSkankGeneratorTests.cpp
     audio/ReggaeArrangerTests.cpp
+    audio/WaveformGeneratorTests.cpp
+    audio/ConversionPipelineTests.cpp
     storage/LocalDatabaseTests.cpp
 )
 

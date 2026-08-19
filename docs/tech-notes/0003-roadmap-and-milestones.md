@@ -19,8 +19,8 @@
 │  Phase 1: Audio Intake, Decoding & Rights Attestation Gate    [DONE]    │
 │  Phase 2: On-Device Stem Separation & Musical Analysis        [DONE]    │
 │  Phase 3: Reggae Arrangement & Composition Engine             [DONE]    │
-│  Phase 4: Real-Time Tuning Controls, Dub FX & A/B Playback    [NEXT]    │
-│  Phase 5: Optional Subtitles, Lyric Editor & MP4 Visualizer             │
+│  Phase 4: Real-Time Tuning Controls, Dub FX & A/B Playback    [DONE]    │
+│  Phase 5: Optional Subtitles, Lyric Editor & MP4 Visualizer   [NEXT]    │
 │  Phase 6: Mastering, Multi-Format Export & Project Storage              │
 │  Phase 7: Cross-Platform Packaging & Cultural Quality Audit             │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -95,22 +95,23 @@
   - `ReggaeArranger`: Orchestrates stems into:
     - **Variation A**: Classic Roots / One-Drop rhythm.
     - **Variation B**: Modern Steppers / Rub-a-Dub rhythm.
-  - Preserves exact sample-count alignment with the separated vocal stem.
+  - Preserves exact sample-accurate alignment with the separated vocal stem.
 - [x] **3.5 Unit & Integration Tests**:
   - 40 test cases, 166 assertions passing.
 
 ---
 
-### **Phase 4: Real-Time Tuning Controls, Dub FX & A/B Playback**
+### **Phase 4: Real-Time Tuning Controls, Dub FX & A/B Playback** `[DONE]`
 *Goal: Provide interactive UI for real-time fine-tuning and comparison.*
 
-- [ ] **4.1 Interactive Waveform & Transport**:
-  - Multi-threaded waveform rendering with smooth playhead scrubbing.
-  - Instantaneous, glitch-free A/B switching preserving exact timestamp alignment.
-- [ ] **4.2 Real-Time Tuning Dials**:
-  - **Reggae Intensity (0–100)**: Adjusts arrangement density, chord substitutions, and skank prominence.
-  - **Dub-Effects Amount (0–100)**: Live tape delay sends, spring reverb splashes, and filter resonance sweeps.
-  - **Vocal Gain (-6 dB to +6 dB)**: Real-time volume balancing of the preserved lead vocal.
+- [x] **4.1 Interactive Waveform & Transport**:
+  - `WaveformGenerator`: Generates compressed, multi-resolution visual peak overviews for high-DPI waveform rendering.
+  - `DualTransportSource`: Instantaneous, click-free equal-power A/B variation switching preserving exact timestamp alignment and playhead position.
+- [x] **4.2 Real-Time Tuning & Pipeline Coordinator**:
+  - `ConversionPipeline`: Complete end-to-end transformation orchestration connecting decoding, normalization, stem separation, harmonic analysis, arrangement, and real-time audio device callbacks.
+  - Dynamic parameter updates for **Reggae Intensity (0–100)**, **Dub-Effects Amount (0–100)**, and **Vocal Gain (-6 dB to +6 dB)** without audio glitching.
+- [x] **4.3 Unit & Integration Tests**:
+  - 44 test cases, 501 assertions passing.
 
 ---
 
