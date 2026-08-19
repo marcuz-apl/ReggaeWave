@@ -57,3 +57,10 @@ target_link_libraries(ReggaeWave PRIVATE
     juce::juce_audio_processors
     juce::juce_audio_utils
 )
+
+if(UNIX AND NOT APPLE)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(GUI_DEPS REQUIRED gtk+-x11-3.0 webkit2gtk-4.1 libcurl alsa)
+    target_include_directories(ReggaeWave PRIVATE ${GUI_DEPS_INCLUDE_DIRS})
+    target_link_libraries(ReggaeWave PRIVATE ${GUI_DEPS_LIBRARIES} curl asound dl pthread)
+endif()
