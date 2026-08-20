@@ -1,0 +1,131 @@
+name: Cross-Platform Build & Release
+
+on:
+  push:
+    branches: [ master, main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: Build on ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux (x86_64)
+            os: ubuntu-24.04
+            artifact_name: ReggaeWave-Linux-x86_64
+            archive_file: ReggaeWave-Linux-x86_64.tar.gz
+
+          - name: macOS (Universal)
+            os: macos-latest
+            artifact_name: ReggaeWave-macOS-Universal
+            archive_file: ReggaeWave-macOS-Universal.zip
+
+          - name: Windows (x64)
+            os: windows-latest
+            artifact_name: ReggaeWave-Windows-x64
+            archive_file: ReggaeWave-Windows-x64.zip
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Install Linux Dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            ninja-build \
+            libasound2-dev \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libcurl4-openssl-dev \
+            libx11-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxcursor-dev
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Compile ReggaeWave & Engine
+        run: |
+          cmake --build build --config Release --target ReggaeWave --parallel
+
+      - name: Run Test Suite (55 Tests)
+        run: |
+          ctest --test-dir build -C Release --output-on-failure
+
+      - name: Package Linux Binary
+        if: runner.os == 'Linux'
+        run: |
+          tar -czf ReggaeWave-Linux-x86_64.tar.gz -C build/apps/desktop/ReggaeWave_artefacts ReggaeWave
+
+      - name: Package macOS App Bundle
+        if: runner.os == 'macOS'
+        run: |
+          if [ -d "build/apps/desktop/ReggaeWave_artefacts/Release/ReggaeWave.app" ]; then
+            zip -r ReggaeWave-macOS-Universal.zip build/apps/desktop/ReggaeWave_artefacts/Release/ReggaeWave.app
+          else
+            zip -r ReggaeWave-macOS-Universal.zip build/apps/desktop/ReggaeWave_artefacts/ReggaeWave.app
+          fi
+
+      - name: Package Windows Executable
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (Test-Path "build/apps/desktop/ReggaeWave_artefacts/Release/ReggaeWave.exe") {
+            Compress-Archive -Path "build/apps/desktop/ReggaeWave_artefacts/Release/ReggaeWave.exe" -DestinationPath "ReggaeWave-Windows-x64.zip"
+          } else {
+            Compress-Archive -Path "build/apps/desktop/ReggaeWave_artefacts/ReggaeWave.exe" -DestinationPath "ReggaeWave-Windows-x64.zip"
+          }
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.archive_file }}
+          retention-days: 30
+
+  create-github-release:
+    name: Publish GitHub Release (On Tags)
+    needs: build-and-test
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download Linux Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ReggaeWave-Linux-x86_64
+          path: release_assets
+
+      - name: Download macOS Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ReggaeWave-macOS-Universal
+          path: release_assets
+
+      - name: Download Windows Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ReggaeWave-Windows-x64
+          path: release_assets
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release_assets/*
+          generate_release_notes: true
