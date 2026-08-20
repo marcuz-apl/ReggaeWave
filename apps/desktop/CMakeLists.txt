@@ -13,7 +13,7 @@ endif()
 
 juce_add_gui_app(ReggaeWave
     PRODUCT_NAME "ReggaeWave"
-    VERSION "${REGGAEWAVE_PROJECT_VERSION}"
+    VERSION "${REGGAEWAVE_VERSION_MAJOR}.${REGGAEWAVE_VERSION_MINOR}.${REGGAEWAVE_VERSION_PATCH}"
     COMPANY_NAME "ReggaeWave"
     ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/Resources/reggaewave_512.png"
     ICON_SMALL "${CMAKE_CURRENT_SOURCE_DIR}/Resources/reggaewave_32.png"
@@ -88,29 +88,11 @@ if(UNIX AND NOT APPLE)
     target_link_libraries(ReggaeWave PRIVATE ${GUI_DEPS_LIBRARIES} asound dl pthread)
 endif()
 
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/generate_icons.cpp")
-    add_executable(generate_icons
-        ../../tools/generate_icons.cpp
-        Source/UI/ReggaeWaveIcon.cpp
-        Source/UI/ReggaeWaveTheme.cpp
-    )
-    target_include_directories(generate_icons PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
-    target_compile_definitions(generate_icons PRIVATE JUCE_USE_CURL=0 JUCE_WEB_BROWSER=0)
-    target_link_libraries(generate_icons PRIVATE
-        juce::juce_gui_basics
-        juce::juce_graphics
-        juce::juce_events
-        juce::juce_core
-        juce::juce_data_structures
-    )
-    if(UNIX AND NOT APPLE)
-        target_include_directories(generate_icons PRIVATE ${GUI_DEPS_INCLUDE_DIRS})
-        target_link_libraries(generate_icons PRIVATE ${GUI_DEPS_LIBRARIES} asound dl pthread)
-    endif()
-endif()
-
-# Installation rules for package generation (DEB, RPM, NSIS)
-install(TARGETS ReggaeWave RUNTIME DESTINATION bin)
+# Installation rules for package generation (DEB, RPM, DMG, NSIS)
+install(TARGETS ReggaeWave
+    BUNDLE DESTINATION .
+    RUNTIME DESTINATION bin
+)
 if(UNIX AND NOT APPLE)
     install(FILES "${CMAKE_SOURCE_DIR}/infra/packaging/linux/reggaewave.desktop"
             DESTINATION share/applications)
@@ -130,5 +112,6 @@ if(UNIX AND NOT APPLE)
             DESTINATION share/icons/hicolor/32x32/apps
             RENAME reggaewave.png)
 endif()
+
 
 

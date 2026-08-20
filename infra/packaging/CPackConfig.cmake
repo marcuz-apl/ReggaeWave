@@ -14,7 +14,6 @@ if(APPLE)
     # macOS DMG & App Bundle
     set(CPACK_GENERATOR "DragNDrop")
     set(CPACK_DMG_VOLUME_NAME "ReggaeWave Installer")
-    set(CPACK_PACKAGE_ICON "${CMAKE_SOURCE_DIR}/infra/packaging/assets/reggaewave.png")
     set(CPACK_BUNDLE_NAME "ReggaeWave")
 elseif(WIN32)
     # Windows 11 NSIS / MSI Installer
