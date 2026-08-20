@@ -49,6 +49,7 @@ private:
     audio::DualTransportSource dualTransport_;
     audio::DubEffectsProcessor dubProcessor_;
     contracts::TuningParameters currentTuning_{50, 0, 0.0};
+    double currentSampleRate_ = 44100.0;
 
     // UI Header
     juce::Label appTitleLabel_;

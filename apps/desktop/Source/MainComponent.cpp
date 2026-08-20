@@ -65,22 +65,33 @@ MainComponent::~MainComponent() {
 }
 
 void MainComponent::prepareToPlay(int samplesPerBlockExpected, double sampleRate) {
-    dualTransport_.prepare(sampleRate, 2);
-    dubProcessor_.prepare(sampleRate, samplesPerBlockExpected, 2);
+    currentSampleRate_ = sampleRate > 0.0 ? sampleRate : 44100.0;
+    dualTransport_.prepare(currentSampleRate_, 2);
+    dubProcessor_.prepare(currentSampleRate_, samplesPerBlockExpected, 2);
 }
 
 void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) {
-    if (!isPlaying_) {
+    if (!isPlaying_ || dualTransport_.getTotalLengthSamples() == 0) {
         bufferToFill.clearActiveBufferRegion();
         return;
     }
 
-    float* const* channels = bufferToFill.buffer->getArrayOfWritePointers();
-    int numChannels = bufferToFill.buffer->getNumChannels();
-    int numSamples = bufferToFill.numSamples;
+    const int numChannels = bufferToFill.buffer->getNumChannels();
+    const int numSamples = bufferToFill.numSamples;
+    const int startSample = bufferToFill.startSample;
 
-    dualTransport_.renderNextBlock(channels, numChannels, numSamples);
-    dubProcessor_.process(channels, numChannels, numSamples);
+    std::vector<float*> channels(numChannels);
+    for (int ch = 0; ch < numChannels; ++ch) {
+        channels[ch] = bufferToFill.buffer->getWritePointer(ch, startSample);
+    }
+
+    dualTransport_.renderNextBlock(channels.data(), numChannels, numSamples);
+    dubProcessor_.process(channels.data(), numChannels, numSamples);
+
+    if (dualTransport_.getPlayheadSample() >= dualTransport_.getTotalLengthSamples()) {
+        isPlaying_ = false;
+        playButton_.setButtonText("Play");
+    }
 }
 
 void MainComponent::releaseResources() {
@@ -98,6 +109,9 @@ void MainComponent::timerCallback() {
 void MainComponent::togglePlayback() {
     if (dualTransport_.getTotalLengthSamples() == 0) {
         return;
+    }
+    if (dualTransport_.getPlayheadSample() >= dualTransport_.getTotalLengthSamples()) {
+        dualTransport_.setPlayheadSample(0);
     }
     isPlaying_ = !isPlaying_;
     playButton_.setButtonText(isPlaying_ ? "Pause" : "Play");
@@ -168,6 +182,7 @@ void MainComponent::processImportedFile(const juce::File& file) {
         // 6. Connect audio transport and DSP
         dualTransport_ = std::move(pipeline_.getTransport());
         dubProcessor_ = std::move(pipeline_.getDubProcessor());
+        dualTransport_.prepare(currentSampleRate_, 2);
         dualTransport_.setPlayheadSample(0);
 
         statusBadgeLabel_.setText("Ready: " + file.getFileNameWithoutExtension() + 
