@@ -18,6 +18,7 @@
 #include "UI/LyricEditorView.h"
 
 #include <memory>
+#include <string>
 
 namespace reggaewave::desktop {
 
@@ -36,10 +37,13 @@ public:
 
 private:
     void handleImportRequested();
+    void openAudioFileChooser();
     void handleRightsConfirmed(contracts::RightsBasis basis);
     void processImportedFile(const juce::File& file);
     void handleExportRequested();
+    void performExportToFile(const juce::File& destinationFile);
     void togglePlayback();
+    void renderPreviewWavToDisk();
 
     // Custom Theme
     ui::ReggaeWaveTheme theme_;
@@ -48,12 +52,15 @@ private:
     audio::ConversionPipeline pipeline_;
     audio::DualTransportSource dualTransport_;
     audio::DubEffectsProcessor dubProcessor_;
-    contracts::TuningParameters currentTuning_{50, 0, 0.0};
+    contracts::TuningParameters currentTuning_{70, 20, 0.0};
     double currentSampleRate_ = 44100.0;
+    std::string currentTrackTitle_ = "Track";
+    audio::ActiveVariation currentVariation_ = audio::ActiveVariation::VariationA;
 
     // UI Header
     juce::Label appTitleLabel_;
     juce::Label statusBadgeLabel_;
+    juce::TextButton rightsStatusButton_{"Rights: Confirmed"};
 
     // Primary Actions
     juce::TextButton importButton_{"Import Track"};
@@ -68,8 +75,9 @@ private:
     std::unique_ptr<juce::FileChooser> fileChooser_;
 
     bool isPlaying_ = false;
+    bool rightsConfirmedOnce_ = false;
     contracts::ConversionJobState currentState_ = contracts::ConversionJobState::Created;
-    std::optional<contracts::RightsBasis> attestedBasis_;
+    contracts::RightsBasis attestedBasis_ = contracts::RightsBasis::Owned;
 };
 
 } // namespace reggaewave::desktop

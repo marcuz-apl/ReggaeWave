@@ -1,10 +1,16 @@
 #include "MainComponent.h"
+#include <fstream>
+#include <cstdlib>
 
 namespace reggaewave::desktop {
 
 MainComponent::MainComponent()
     : waveformView_(
-        [this](audio::ActiveVariation var) { dualTransport_.setActiveVariation(var); },
+        [this](audio::ActiveVariation var) {
+            currentVariation_ = var;
+            dualTransport_.setActiveVariation(var);
+            renderPreviewWavToDisk();
+        },
         [this](double normPos) {
             size_t targetSample = static_cast<size_t>(normPos * dualTransport_.getTotalLengthSamples());
             dualTransport_.setPlayheadSample(targetSample);
@@ -16,6 +22,7 @@ MainComponent::MainComponent()
         dualTransport_.setVocalGainDb(params.getVocalLevelDb());
         if (pipeline_.isReady()) {
             pipeline_.updateTuning(params);
+            renderPreviewWavToDisk();
         }
     })
 {
@@ -31,6 +38,14 @@ MainComponent::MainComponent()
     statusBadgeLabel_.setFont(juce::FontOptions(13.0f));
     statusBadgeLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGreen);
     addAndMakeVisible(statusBadgeLabel_);
+
+    rightsStatusButton_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::bgSurface);
+    rightsStatusButton_.setColour(juce::TextButton::textColourOffId, ui::ReggaeWaveTheme::textSecondary);
+    rightsStatusButton_.onClick = [this]() {
+        rightsConfirmedOnce_ = false;
+        handleImportRequested();
+    };
+    addAndMakeVisible(rightsStatusButton_);
 
     // 2. Buttons
     importButton_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::bgElevated);
@@ -51,9 +66,9 @@ MainComponent::MainComponent()
     addAndMakeVisible(tuningPanel_);
     addAndMakeVisible(lyricEditor_);
 
-    // Audio setup (0 in, 2 out)
+    // Audio setup
     setAudioChannels(0, 2);
-    startTimerHz(30); // 30 FPS UI timer for playhead refresh
+    startTimerHz(30);
 
     setSize(920, 640);
 }
@@ -61,6 +76,7 @@ MainComponent::MainComponent()
 MainComponent::~MainComponent() {
     stopTimer();
     shutdownAudio();
+    std::system("pkill -9 mpv 2>/dev/null");
     juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
 }
 
@@ -115,25 +131,42 @@ void MainComponent::togglePlayback() {
     }
     isPlaying_ = !isPlaying_;
     playButton_.setButtonText(isPlaying_ ? "Pause" : "Play");
+
+    if (isPlaying_) {
+        // In WSL2, seamlessly route playback via mpv if ALSA hardware is virtualized
+        std::system("pkill -9 mpv 2>/dev/null");
+        std::system("mpv --no-terminal --really-quiet /tmp/reggaewave_preview.wav &");
+    } else {
+        std::system("pkill -9 mpv 2>/dev/null");
+    }
 }
 
 void MainComponent::handleImportRequested() {
-    rightsModal_ = std::make_unique<ui::RightsAttestationModal>(
-        [this](contracts::RightsBasis basis) {
-            handleRightsConfirmed(basis);
-        }
-    );
-    rightsModal_->setBounds(getLocalBounds());
-    addAndMakeVisible(rightsModal_.get());
+    if (!rightsConfirmedOnce_) {
+        rightsModal_ = std::make_unique<ui::RightsAttestationModal>(
+            [this](contracts::RightsBasis basis) {
+                handleRightsConfirmed(basis);
+            }
+        );
+        rightsModal_->setBounds(getLocalBounds());
+        addAndMakeVisible(rightsModal_.get());
+    } else {
+        openAudioFileChooser();
+    }
 }
 
 void MainComponent::handleRightsConfirmed(contracts::RightsBasis basis) {
     attestedBasis_ = basis;
+    rightsConfirmedOnce_ = true;
     if (rightsModal_) {
         removeChildComponent(rightsModal_.get());
         rightsModal_.reset();
     }
-    currentState_ = contracts::ConversionJobState::Importing;
+    rightsStatusButton_.setButtonText("Rights: " + juce::String(std::string(contracts::toString(basis))));
+    openAudioFileChooser();
+}
+
+void MainComponent::openAudioFileChooser() {
     statusBadgeLabel_.setText("Opening file chooser...", juce::dontSendNotification);
 
     auto initialDir = juce::File::getCurrentWorkingDirectory().getChildFile("test-tracks");
@@ -153,12 +186,13 @@ void MainComponent::handleRightsConfirmed(contracts::RightsBasis basis) {
         if (file.existsAsFile()) {
             processImportedFile(file);
         } else {
-            statusBadgeLabel_.setText("Import cancelled", juce::dontSendNotification);
+            statusBadgeLabel_.setText("Ready", juce::dontSendNotification);
         }
     });
 }
 
 void MainComponent::processImportedFile(const juce::File& file) {
+    currentTrackTitle_ = file.getFileNameWithoutExtension().toStdString();
     statusBadgeLabel_.setText("Transforming: " + file.getFileName() + "...", juce::dontSendNotification);
     statusBadgeLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGold);
     repaint();
@@ -171,10 +205,10 @@ void MainComponent::processImportedFile(const juce::File& file) {
         auto wavBytes = audio::AudioExporter::encodeWav24Bit(decoded.channels, decoded.sampleRate);
         
         // 3. Construct verified rights attestation
-        contracts::RightsAttestation attestation(attestedBasis_.value_or(contracts::RightsBasis::Owned), true, "project-desktop");
+        contracts::RightsAttestation attestation(attestedBasis_, true, "project-desktop");
         
         // 4. Run pipeline
-        auto output = pipeline_.execute(wavBytes, attestation, currentTuning_, "project-desktop", file.getFileNameWithoutExtension().toStdString());
+        auto output = pipeline_.execute(wavBytes, attestation, currentTuning_, "project-desktop", currentTrackTitle_);
         
         // 5. Update Waveform UI
         waveformView_.setWaveformData(output.waveformOverviewPeaks);
@@ -184,6 +218,9 @@ void MainComponent::processImportedFile(const juce::File& file) {
         dubProcessor_ = std::move(pipeline_.getDubProcessor());
         dualTransport_.prepare(currentSampleRate_, 2);
         dualTransport_.setPlayheadSample(0);
+
+        // Render preview cache to disk for instant WSL audio playback
+        renderPreviewWavToDisk();
 
         statusBadgeLabel_.setText("Ready: " + file.getFileNameWithoutExtension() + 
                                   " (" + juce::String(static_cast<int>(output.analysisManifest.bpm)) + " BPM, " +
@@ -197,25 +234,119 @@ void MainComponent::processImportedFile(const juce::File& file) {
     }
 }
 
+void MainComponent::renderPreviewWavToDisk() {
+    if (dualTransport_.getTotalLengthSamples() == 0) return;
+
+    const size_t totalSamples = dualTransport_.getTotalLengthSamples();
+    const size_t renderSamples = std::min(totalSamples, size_t{44100 * 180}); // Up to 3 mins preview
+    
+    // Render full mix to buffer
+    std::vector<float> leftCh(renderSamples, 0.0f);
+    std::vector<float> rightCh(renderSamples, 0.0f);
+    std::vector<float*> ptrs = {leftCh.data(), rightCh.data()};
+
+    // Snapshot transport
+    audio::DualTransportSource tempTransport = dualTransport_;
+    audio::DubEffectsProcessor tempDub = dubProcessor_;
+    tempTransport.setPlayheadSample(0);
+
+    const int blockSize = 1024;
+    for (size_t pos = 0; pos < renderSamples; pos += blockSize) {
+        int samplesToProcess = static_cast<int>(std::min(size_t{blockSize}, renderSamples - pos));
+        std::vector<float*> blockPtrs = {leftCh.data() + pos, rightCh.data() + pos};
+        tempTransport.renderNextBlock(blockPtrs.data(), 2, samplesToProcess);
+        tempDub.process(blockPtrs.data(), 2, samplesToProcess);
+    }
+
+    auto mastered = audio::AudioMasterer::master({leftCh, rightCh}, 44100.0);
+    auto wavBytes = audio::AudioExporter::encodeWav24Bit(mastered.masteredAudio, 44100.0);
+
+    std::ofstream out("/tmp/reggaewave_preview.wav", std::ios::binary);
+    if (out.is_open()) {
+        out.write(reinterpret_cast<const char*>(wavBytes.data()), wavBytes.size());
+    }
+}
+
 void MainComponent::handleExportRequested() {
     if (dualTransport_.getTotalLengthSamples() == 0) {
         statusBadgeLabel_.setText("No track loaded to export", juce::dontSendNotification);
         return;
     }
 
+    auto defaultExportFile = juce::File::getCurrentWorkingDirectory()
+                                .getChildFile("exports")
+                                .getChildFile(juce::String(currentTrackTitle_) + "_reggae_master.wav");
+
     fileChooser_ = std::make_unique<juce::FileChooser>(
-        "Export Reggae Master",
-        juce::File::getSpecialLocation(juce::File::userHomeDirectory).getChildFile("reggae_master.wav"),
+        "Export Reggae Master (-14 LUFS / -1 dBTP)",
+        defaultExportFile,
         "*.wav;*.mp3"
     );
 
-    auto flags = juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles;
+    auto flags = juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting;
     fileChooser_->launchAsync(flags, [this](const juce::FileChooser& fc) {
         auto dest = fc.getResult();
         if (dest.getFullPathName().isNotEmpty()) {
-            statusBadgeLabel_.setText("Exported: " + dest.getFileName(), juce::dontSendNotification);
+            performExportToFile(dest);
         }
     });
+}
+
+void MainComponent::performExportToFile(const juce::File& destinationFile) {
+    statusBadgeLabel_.setText("Mastering & Exporting: " + destinationFile.getFileName() + "...", juce::dontSendNotification);
+    statusBadgeLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGold);
+    repaint();
+
+    try {
+        const size_t totalSamples = dualTransport_.getTotalLengthSamples();
+        std::vector<float> leftCh(totalSamples, 0.0f);
+        std::vector<float> rightCh(totalSamples, 0.0f);
+
+        audio::DualTransportSource tempTransport = dualTransport_;
+        audio::DubEffectsProcessor tempDub = dubProcessor_;
+        tempTransport.setPlayheadSample(0);
+
+        const int blockSize = 1024;
+        for (size_t pos = 0; pos < totalSamples; pos += blockSize) {
+            int samplesToProcess = static_cast<int>(std::min(size_t{blockSize}, totalSamples - pos));
+            std::vector<float*> blockPtrs = {leftCh.data() + pos, rightCh.data() + pos};
+            tempTransport.renderNextBlock(blockPtrs.data(), 2, samplesToProcess);
+            tempDub.process(blockPtrs.data(), 2, samplesToProcess);
+        }
+
+        // Master to -14.0 LUFS and -1.0 dBTP ceiling
+        auto mastered = audio::AudioMasterer::master({leftCh, rightCh}, 44100.0);
+        auto wavBytes = audio::AudioExporter::encodeWav24Bit(mastered.masteredAudio, 44100.0);
+
+        // Ensure parent directory exists
+        destinationFile.getParentDirectory().createDirectory();
+
+        std::ofstream out(destinationFile.getFullPathName().toStdString(), std::ios::binary);
+        if (!out.is_open()) {
+            throw std::runtime_error("Could not open destination file for writing");
+        }
+        out.write(reinterpret_cast<const char*>(wavBytes.data()), wavBytes.size());
+        out.close();
+
+        // Also save a copy to workspace ./exports/ folder
+        auto exportsDir = juce::File::getCurrentWorkingDirectory().getChildFile("exports");
+        exportsDir.createDirectory();
+        auto workspaceCopy = exportsDir.getChildFile(destinationFile.getFileName());
+        if (workspaceCopy.getFullPathName() != destinationFile.getFullPathName()) {
+            std::ofstream copyOut(workspaceCopy.getFullPathName().toStdString(), std::ios::binary);
+            if (copyOut.is_open()) {
+                copyOut.write(reinterpret_cast<const char*>(wavBytes.data()), wavBytes.size());
+            }
+        }
+
+        statusBadgeLabel_.setText("Master Exported: " + destinationFile.getFileName() + " (" + 
+                                  juce::String(mastered.integratedLufs, 1) + " LUFS, " +
+                                  juce::String(mastered.truePeakDb, 1) + " dBTP)", juce::dontSendNotification);
+        statusBadgeLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGreen);
+    } catch (const std::exception& ex) {
+        statusBadgeLabel_.setText("Export Error: " + juce::String(ex.what()), juce::dontSendNotification);
+        statusBadgeLabel_.setColour(juce::Label::textColourId, juce::Colours::red);
+    }
 }
 
 void MainComponent::paint(juce::Graphics& g) {
@@ -227,8 +358,10 @@ void MainComponent::resized() {
 
     // Top Header
     auto headerArea = area.removeFromTop(44);
-    appTitleLabel_.setBounds(headerArea.removeFromLeft(200));
-    statusBadgeLabel_.setBounds(headerArea.removeFromLeft(350));
+    appTitleLabel_.setBounds(headerArea.removeFromLeft(170));
+    rightsStatusButton_.setBounds(headerArea.removeFromLeft(150).reduced(0, 6));
+    headerArea.removeFromLeft(10);
+    statusBadgeLabel_.setBounds(headerArea.removeFromLeft(280));
     exportButton_.setBounds(headerArea.removeFromRight(190));
     headerArea.removeFromRight(10);
     importButton_.setBounds(headerArea.removeFromRight(130));
