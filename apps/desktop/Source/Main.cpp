@@ -9,7 +9,11 @@ public:
     ReggaeWaveApplication() = default;
 
     const juce::String getApplicationName() override { return "ReggaeWave"; }
-    const juce::String getApplicationVersion() override { return "1.2.1"; }
+#ifdef REGGAEWAVE_APP_VERSION_STRING
+    const juce::String getApplicationVersion() override { return REGGAEWAVE_APP_VERSION_STRING; }
+#else
+    const juce::String getApplicationVersion() override { return "1.2.5"; }
+#endif
     bool moreThanOneInstanceAllowed() override { return false; }
 
     void initialise(const juce::String& /*commandLine*/) override {

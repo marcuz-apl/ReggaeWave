@@ -2,7 +2,9 @@
 Name=ReggaeWave
 Comment=Transform music into authentic Reggae arrangements
 Exec=ReggaeWave %F
+Icon=reggaewave
 Terminal=false
 Type=Application
 Categories=AudioVideo;Audio;Music;
 StartupNotify=true
+

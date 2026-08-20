@@ -5,5 +5,9 @@ target_include_directories(reggaewave_audio_engine INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
-target_compile_features(reggaewave_audio_engine INTERFACE cxx_std_20)
 target_link_libraries(reggaewave_audio_engine INTERFACE reggaewave_contracts)
+
+if(WIN32)
+    target_link_libraries(reggaewave_audio_engine INTERFACE mfplat mfreadwrite mfuuid ole32)
+endif()
+

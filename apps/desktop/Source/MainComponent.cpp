@@ -3,15 +3,6 @@
 #include <fstream>
 #include <cstdlib>
 #include <chrono>
-#include <csignal>
-
-#if defined(_WIN32)
-#define rw_popen _popen
-#define rw_pclose _pclose
-#else
-#define rw_popen popen
-#define rw_pclose pclose
-#endif
 
 namespace reggaewave::desktop {
 
@@ -39,11 +30,6 @@ MainComponent::MainComponent()
     )
     , exportCard_([this](audio::AudioExportFormat fmt, bool subs) { handleExportRequested(fmt, subs); })
 {
-#if defined(SIGPIPE)
-    // Ignore SIGPIPE to prevent exit code 141
-    std::signal(SIGPIPE, SIG_IGN);
-#endif
-
     juce::LookAndFeel::setDefaultLookAndFeel(&theme_);
 
     // 1. Header Bar: Branding & Status (Clean typography)
@@ -54,7 +40,11 @@ MainComponent::MainComponent()
     appTitleLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGold);
     addAndMakeVisible(appTitleLabel_);
 
-    versionBadgeLabel_.setText("v1.2.1", juce::dontSendNotification);
+#ifdef REGGAEWAVE_APP_VERSION_STRING
+    versionBadgeLabel_.setText("v" REGGAEWAVE_APP_VERSION_STRING, juce::dontSendNotification);
+#else
+    versionBadgeLabel_.setText("v1.2.5", juce::dontSendNotification);
+#endif
     versionBadgeLabel_.setFont(juce::FontOptions(11.5f, juce::Font::bold));
     versionBadgeLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::textSecondary);
     versionBadgeLabel_.setJustificationType(juce::Justification::centred);
@@ -90,14 +80,72 @@ MainComponent::MainComponent()
     dualTransport_.prepare(44100.0, 2);
     dubProcessor_.prepare(44100.0, 512, 2);
 
+    // Initialize Native OS Audio Device Hardware (WASAPI / DirectSound on Windows, CoreAudio on macOS, ALSA on Linux)
+    deviceManager_.initialiseWithDefaultDevices(0, 2);
+    deviceManager_.addAudioCallback(this);
+
     startTimerHz(30);
     setSize(1020, 720);
 }
 
 MainComponent::~MainComponent() {
     stopTimer();
-    stopLiveAudioStreaming();
+    isPlaying_ = false;
+    deviceManager_.removeAudioCallback(this);
+    deviceManager_.closeAudioDevice();
     juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
+}
+
+void MainComponent::audioDeviceAboutToStart(juce::AudioIODevice* device) {
+    if (device != nullptr) {
+        const juce::ScopedLock sl(audioLock_);
+        currentSampleRate_ = device->getCurrentSampleRate();
+        dualTransport_.prepare(currentSampleRate_, 2);
+        dubProcessor_.prepare(currentSampleRate_, 512, 2);
+    }
+}
+
+void MainComponent::audioDeviceStopped() {
+}
+
+void MainComponent::audioDeviceIOCallbackWithContext(const float* const* /*inputChannelData*/,
+                                                      int /*numInputChannels*/,
+                                                      float* const* outputChannelData,
+                                                      int numOutputChannels,
+                                                      int numSamples,
+                                                      const juce::AudioIODeviceCallbackContext& /*context*/) {
+    // 1. Always zero out output channels first to avoid hardware noise
+    for (int ch = 0; ch < numOutputChannels; ++ch) {
+        if (outputChannelData[ch] != nullptr) {
+            juce::FloatVectorOperations::clear(outputChannelData[ch], numSamples);
+        }
+    }
+
+    if (!isPlaying_) {
+        return;
+    }
+
+    const juce::ScopedLock sl(audioLock_);
+    if (dualTransport_.getTotalLengthSamples() == 0 ||
+        dualTransport_.getPlayheadSample() >= dualTransport_.getTotalLengthSamples()) {
+        juce::MessageManager::callAsync([this]() {
+            isPlaying_ = false;
+            studioCard_.setIsPlaying(false);
+        });
+        return;
+    }
+
+    // 2. Render dualTransport_ directly into hardware output channels
+    if (numOutputChannels >= 2 && outputChannelData[0] != nullptr && outputChannelData[1] != nullptr) {
+        float* channels[2] = { outputChannelData[0], outputChannelData[1] };
+        dualTransport_.renderNextBlock(channels, 2, numSamples);
+        dubProcessor_.process(channels, 2, numSamples);
+    } else if (numOutputChannels == 1 && outputChannelData[0] != nullptr) {
+        std::vector<float> rightScratch(numSamples, 0.0f);
+        float* channels[2] = { outputChannelData[0], rightScratch.data() };
+        dualTransport_.renderNextBlock(channels, 2, numSamples);
+        dubProcessor_.process(channels, 2, numSamples);
+    }
 }
 
 void MainComponent::timerCallback() {
@@ -106,74 +154,6 @@ void MainComponent::timerCallback() {
         double progress = static_cast<double>(dualTransport_.getPlayheadSample()) / 
                           static_cast<double>(dualTransport_.getTotalLengthSamples());
         studioCard_.setPlaybackProgress(progress);
-    }
-}
-
-void MainComponent::startLiveAudioStreaming() {
-    stopLiveAudioStreaming();
-    isStreaming_ = true;
-
-    liveAudioThread_ = std::thread([this]() {
-#if defined(_WIN32)
-        const char* streamCmd = "ffplay -nodisp -autoexit -f f32le -ar 44100 -ch_layout stereo -i - >nul 2>&1";
-#else
-        const char* streamCmd = "ffplay -nodisp -autoexit -f f32le -ar 44100 -ch_layout stereo -i - 2>/dev/null";
-#endif
-        FILE* pipe = rw_popen(streamCmd, "w");
-        if (!pipe) return;
-
-        const int blockSize = 2048;
-        std::vector<float> leftCh(blockSize, 0.0f);
-        std::vector<float> rightCh(blockSize, 0.0f);
-        std::vector<float> interleaved(blockSize * 2, 0.0f);
-
-        while (isStreaming_) {
-            bool hasMoreAudio = true;
-            {
-                const juce::ScopedLock sl(audioLock_);
-                if (dualTransport_.getTotalLengthSamples() == 0 ||
-                    dualTransport_.getPlayheadSample() >= dualTransport_.getTotalLengthSamples()) {
-                    hasMoreAudio = false;
-                } else {
-                    std::vector<float*> ptrs = {leftCh.data(), rightCh.data()};
-                    dualTransport_.renderNextBlock(ptrs.data(), 2, blockSize);
-                    dubProcessor_.process(ptrs.data(), 2, blockSize);
-
-                    for (int i = 0; i < blockSize; ++i) {
-                        interleaved[i * 2] = leftCh[i];
-                        interleaved[i * 2 + 1] = rightCh[i];
-                    }
-                }
-            }
-
-            if (!hasMoreAudio) {
-                juce::MessageManager::callAsync([this]() {
-                    isPlaying_ = false;
-                    studioCard_.setIsPlaying(false);
-                });
-                break;
-            }
-
-            size_t written = fwrite(interleaved.data(), sizeof(float), interleaved.size(), pipe);
-            fflush(pipe);
-            if (written < interleaved.size() || ferror(pipe)) {
-                break;
-            }
-        }
-
-        rw_pclose(pipe);
-    });
-}
-
-void MainComponent::stopLiveAudioStreaming() {
-    isStreaming_ = false;
-#if defined(_WIN32)
-    std::system("taskkill /F /IM ffplay.exe >nul 2>&1");
-#else
-    std::system("killall -9 ffplay 2>/dev/null");
-#endif
-    if (liveAudioThread_.joinable()) {
-        liveAudioThread_.join();
     }
 }
 
@@ -192,12 +172,6 @@ void MainComponent::togglePlayback() {
     }
 
     studioCard_.setIsPlaying(nowPlaying);
-
-    if (nowPlaying) {
-        startLiveAudioStreaming();
-    } else {
-        stopLiveAudioStreaming();
-    }
 }
 
 void MainComponent::rewindPlayback() {
@@ -206,10 +180,6 @@ void MainComponent::rewindPlayback() {
         dualTransport_.setPlayheadSample(0);
     }
     studioCard_.setPlaybackProgress(0.0);
-
-    if (isPlaying_) {
-        startLiveAudioStreaming();
-    }
 }
 
 void MainComponent::handleImportRequested() {
@@ -259,7 +229,8 @@ void MainComponent::openAudioFileChooser() {
 }
 
 void MainComponent::processImportedFile(const juce::File& file) {
-    stopLiveAudioStreaming();
+    isPlaying_ = false;
+    studioCard_.setIsPlaying(false);
     currentTrackTitle_ = file.getFileNameWithoutExtension().toStdString();
     importCard_.setImportStatus("Transforming: " + file.getFileName().toStdString() + "...");
     repaint();

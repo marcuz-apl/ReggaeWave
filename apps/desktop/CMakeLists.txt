@@ -13,8 +13,10 @@ endif()
 
 juce_add_gui_app(ReggaeWave
     PRODUCT_NAME "ReggaeWave"
-    VERSION 0.1.0
+    VERSION "${REGGAEWAVE_PROJECT_VERSION}"
     COMPANY_NAME "ReggaeWave"
+    ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/Resources/reggaewave_512.png"
+    ICON_SMALL "${CMAKE_CURRENT_SOURCE_DIR}/Resources/reggaewave_32.png"
 )
 
 target_sources(ReggaeWave PRIVATE
@@ -85,3 +87,48 @@ if(UNIX AND NOT APPLE)
     target_include_directories(ReggaeWave PRIVATE ${GUI_DEPS_INCLUDE_DIRS})
     target_link_libraries(ReggaeWave PRIVATE ${GUI_DEPS_LIBRARIES} asound dl pthread)
 endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/generate_icons.cpp")
+    add_executable(generate_icons
+        ../../tools/generate_icons.cpp
+        Source/UI/ReggaeWaveIcon.cpp
+        Source/UI/ReggaeWaveTheme.cpp
+    )
+    target_include_directories(generate_icons PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
+    target_compile_definitions(generate_icons PRIVATE JUCE_USE_CURL=0 JUCE_WEB_BROWSER=0)
+    target_link_libraries(generate_icons PRIVATE
+        juce::juce_gui_basics
+        juce::juce_graphics
+        juce::juce_events
+        juce::juce_core
+        juce::juce_data_structures
+    )
+    if(UNIX AND NOT APPLE)
+        target_include_directories(generate_icons PRIVATE ${GUI_DEPS_INCLUDE_DIRS})
+        target_link_libraries(generate_icons PRIVATE ${GUI_DEPS_LIBRARIES} asound dl pthread)
+    endif()
+endif()
+
+# Installation rules for package generation (DEB, RPM, NSIS)
+install(TARGETS ReggaeWave RUNTIME DESTINATION bin)
+if(UNIX AND NOT APPLE)
+    install(FILES "${CMAKE_SOURCE_DIR}/infra/packaging/linux/reggaewave.desktop"
+            DESTINATION share/applications)
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/Resources/reggaewave_512.png"
+            DESTINATION share/icons/hicolor/512x512/apps
+            RENAME reggaewave.png)
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/Resources/reggaewave_256.png"
+            DESTINATION share/icons/hicolor/256x256/apps
+            RENAME reggaewave.png)
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/Resources/reggaewave_128.png"
+            DESTINATION share/icons/hicolor/128x128/apps
+            RENAME reggaewave.png)
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/Resources/reggaewave_64.png"
+            DESTINATION share/icons/hicolor/64x64/apps
+            RENAME reggaewave.png)
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/Resources/reggaewave_32.png"
+            DESTINATION share/icons/hicolor/32x32/apps
+            RENAME reggaewave.png)
+endif()
+
+

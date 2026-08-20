@@ -11,7 +11,7 @@ MainWindow::MainWindow(const juce::String& name)
 {
     // Use custom dark titlebar with embedded golden icon for reliable centering & branding
     setUsingNativeTitleBar(false);
-    setIcon(ui::ReggaeWaveIcon::createIconImage(64));
+    setIcon(ui::ReggaeWaveIcon::createIconImage(256));
     setTitleBarHeight(32);
 
     mainComponent_ = std::make_unique<MainComponent>();

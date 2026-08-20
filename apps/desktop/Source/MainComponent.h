@@ -1,6 +1,8 @@
 #pragma once
 
 #include <juce_gui_extra/juce_gui_extra.h>
+#include <juce_audio_devices/juce_audio_devices.h>
+#include <juce_audio_basics/juce_audio_basics.h>
 
 #include <reggaewave/contracts/JobState.hpp>
 #include <reggaewave/contracts/TuningParameters.hpp>
@@ -22,12 +24,13 @@
 
 #include <memory>
 #include <string>
-#include <thread>
 #include <atomic>
 
 namespace reggaewave::desktop {
 
-class MainComponent : public juce::Component, public juce::Timer {
+class MainComponent : public juce::Component,
+                      public juce::Timer,
+                      public juce::AudioIODeviceCallback {
 public:
     MainComponent();
     ~MainComponent() override;
@@ -35,6 +38,16 @@ public:
     void paint(juce::Graphics& g) override;
     void resized() override;
     void timerCallback() override;
+
+    // juce::AudioIODeviceCallback native OS hardware callbacks
+    void audioDeviceIOCallbackWithContext(const float* const* inputChannelData,
+                                          int numInputChannels,
+                                          float* const* outputChannelData,
+                                          int numOutputChannels,
+                                          int numSamples,
+                                          const juce::AudioIODeviceCallbackContext& context) override;
+    void audioDeviceAboutToStart(juce::AudioIODevice* device) override;
+    void audioDeviceStopped() override;
 
 private:
     void handleImportRequested();
@@ -44,17 +57,14 @@ private:
     void handleExportRequested(audio::AudioExportFormat format, bool includeSubtitles);
     void togglePlayback();
     void rewindPlayback();
-    void startLiveAudioStreaming();
-    void stopLiveAudioStreaming();
     void showAboutModal();
 
     // Theme & Audio Thread Synchronization
     ui::ReggaeWaveTheme theme_;
     juce::CriticalSection audioLock_;
 
-    // Live Streaming Thread for Real-Time On-The-Fly DSP Tuning
-    std::atomic<bool> isStreaming_{false};
-    std::thread liveAudioThread_;
+    // Native JUCE Audio Hardware Device Manager (WASAPI/DirectSound, CoreAudio, ALSA)
+    juce::AudioDeviceManager deviceManager_;
 
     // DSP & Pipeline
     audio::ConversionPipeline pipeline_;
@@ -85,10 +95,11 @@ private:
     std::unique_ptr<ui::InfoDialogModal> aboutModal_;
     std::unique_ptr<ui::ImportFileModal> importFileModal_;
 
-    bool isPlaying_ = false;
+    std::atomic<bool> isPlaying_{false};
     bool rightsConfirmedOnce_ = false;
     contracts::ConversionJobState currentState_ = contracts::ConversionJobState::Created;
     contracts::RightsBasis attestedBasis_ = contracts::RightsBasis::Owned;
 };
 
 } // namespace reggaewave::desktop
+

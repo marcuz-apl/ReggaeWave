@@ -24,6 +24,16 @@
 #define rw_pclose pclose
 #endif
 
+#if defined(_WIN32)
+#include <windows.h>
+#include <mfapi.h>
+#include <mfidl.h>
+#include <mfreadwrite.h>
+#pragma comment(lib, "mfplat.lib")
+#pragma comment(lib, "mfreadwrite.lib")
+#pragma comment(lib, "mfuuid.lib")
+#endif
+
 namespace reggaewave::audio {
 
 struct DecodedAudio {
@@ -39,6 +49,135 @@ struct DecodedAudio {
  */
 class AudioDecoder {
 public:
+#if defined(_WIN32)
+    static DecodedAudio decodeViaWindowsMediaFoundation(const std::string& filePath) {
+        HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+        bool coInitialized = SUCCEEDED(hr);
+
+        hr = MFStartup(MF_VERSION);
+        if (FAILED(hr)) {
+            if (coInitialized) CoUninitialize();
+            throw std::runtime_error("MFStartup failed");
+        }
+
+        int len = MultiByteToWideChar(CP_UTF8, 0, filePath.c_str(), -1, NULL, 0);
+        std::wstring wPath(len, L'\0');
+        MultiByteToWideChar(CP_UTF8, 0, filePath.c_str(), -1, &wPath[0], len);
+
+        IMFSourceReader* pReader = nullptr;
+        hr = MFCreateSourceReaderFromURL(wPath.c_str(), NULL, &pReader);
+        if (FAILED(hr) || !pReader) {
+            MFShutdown();
+            if (coInitialized) CoUninitialize();
+            throw std::runtime_error("MFCreateSourceReaderFromURL failed for: " + filePath);
+        }
+
+        pReader->SetStreamSelection(MF_SOURCE_READER_ALL_STREAMS, FALSE);
+        pReader->SetStreamSelection(MF_SOURCE_READER_FIRST_AUDIO_STREAM, TRUE);
+
+        IMFMediaType* pPartialType = nullptr;
+        MFCreateMediaType(&pPartialType);
+        pPartialType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Audio);
+        pPartialType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_Float);
+
+        hr = pReader->SetCurrentMediaType(MF_SOURCE_READER_FIRST_AUDIO_STREAM, NULL, pPartialType);
+        pPartialType->Release();
+
+        bool isFloat = SUCCEEDED(hr);
+        if (!isFloat) {
+            IMFMediaType* pPcmType = nullptr;
+            MFCreateMediaType(&pPcmType);
+            pPcmType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Audio);
+            pPcmType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_PCM);
+            hr = pReader->SetCurrentMediaType(MF_SOURCE_READER_FIRST_AUDIO_STREAM, NULL, pPcmType);
+            pPcmType->Release();
+            if (FAILED(hr)) {
+                pReader->Release();
+                MFShutdown();
+                if (coInitialized) CoUninitialize();
+                throw std::runtime_error("Could not set uncompressed audio output on WMF reader");
+            }
+        }
+
+        IMFMediaType* pUncompressedType = nullptr;
+        hr = pReader->GetCurrentMediaType(MF_SOURCE_READER_FIRST_AUDIO_STREAM, &pUncompressedType);
+        UINT32 sampleRate = 44100;
+        UINT32 numChannels = 2;
+        UINT32 bitsPerSample = isFloat ? 32 : 16;
+        if (SUCCEEDED(hr) && pUncompressedType) {
+            pUncompressedType->GetUINT32(MF_MT_AUDIO_SAMPLES_PER_SECOND, &sampleRate);
+            pUncompressedType->GetUINT32(MF_MT_AUDIO_NUM_CHANNELS, &numChannels);
+            pUncompressedType->GetUINT32(MF_MT_AUDIO_BITS_PER_SAMPLE, &bitsPerSample);
+            pUncompressedType->Release();
+        }
+
+        int channelsToUse = std::max(1, (int)numChannels);
+        std::vector<std::vector<float>> channels(2);
+
+        for (;;) {
+            DWORD flags = 0;
+            LONGLONG timeStamp = 0;
+            IMFSample* pSample = nullptr;
+            hr = pReader->ReadSample(MF_SOURCE_READER_FIRST_AUDIO_STREAM, 0, NULL, &flags, &timeStamp, &pSample);
+            if (FAILED(hr) || (flags & MF_SOURCE_READERF_ENDOFSTREAM)) {
+                if (pSample) pSample->Release();
+                break;
+            }
+            if (!pSample) continue;
+
+            IMFMediaBuffer* pBuffer = nullptr;
+            hr = pSample->ConvertToContiguousBuffer(&pBuffer);
+            if (SUCCEEDED(hr) && pBuffer) {
+                BYTE* pData = nullptr;
+                DWORD maxLen = 0, curLen = 0;
+                hr = pBuffer->Lock(&pData, &maxLen, &curLen);
+                if (SUCCEEDED(hr) && pData && curLen > 0) {
+                    if (isFloat && bitsPerSample == 32) {
+                        size_t numFloats = curLen / sizeof(float);
+                        size_t frames = numFloats / channelsToUse;
+                        const float* fPtr = reinterpret_cast<const float*>(pData);
+                        for (size_t f = 0; f < frames; ++f) {
+                            float left = fPtr[f * channelsToUse];
+                            float right = (channelsToUse > 1) ? fPtr[f * channelsToUse + 1] : left;
+                            channels[0].push_back(left);
+                            channels[1].push_back(right);
+                        }
+                    } else if (!isFloat && bitsPerSample == 16) {
+                        size_t numShorts = curLen / sizeof(int16_t);
+                        size_t frames = numShorts / channelsToUse;
+                        const int16_t* sPtr = reinterpret_cast<const int16_t*>(pData);
+                        for (size_t f = 0; f < frames; ++f) {
+                            float left = static_cast<float>(sPtr[f * channelsToUse]) / 32768.0f;
+                            float right = (channelsToUse > 1) ? (static_cast<float>(sPtr[f * channelsToUse + 1]) / 32768.0f) : left;
+                            channels[0].push_back(left);
+                            channels[1].push_back(right);
+                        }
+                    }
+                    pBuffer->Unlock();
+                }
+                pBuffer->Release();
+            }
+            pSample->Release();
+        }
+
+        pReader->Release();
+        MFShutdown();
+        if (coInitialized) CoUninitialize();
+
+        if (channels[0].empty()) {
+            throw std::runtime_error("WMF decoded 0 audio frames from: " + filePath);
+        }
+
+        DecodedAudio result;
+        result.sampleRate = static_cast<double>(sampleRate);
+        result.numChannels = 2;
+        result.numSamples = channels[0].size();
+        result.durationSeconds = static_cast<double>(result.numSamples) / result.sampleRate;
+        result.channels = std::move(channels);
+        return result;
+    }
+#endif
+
     /**
      * @brief Decodes any audio file using native OS / JUCE decoders (WMF on Windows, CoreAudio on macOS)
      * with WAV and ffmpeg fallback.
@@ -80,18 +219,27 @@ public:
                 }
             }
         } catch (...) {
-            // Fall through to direct WAV decoder and ffmpeg
+            // Fall through to native WMF or direct WAV decoder
         }
 #endif
 
-        // 2. Try direct built-in PCM WAV decode
+#if defined(_WIN32)
+        // 2. Try native Windows Media Foundation (M4A/AAC/MP4/MP3/ALAC/WAV/WMA/FLAC)
+        try {
+            return decodeViaWindowsMediaFoundation(filePath);
+        } catch (...) {
+            // Fall through to WAV decoder
+        }
+#endif
+
+        // 3. Try direct built-in PCM WAV decode
         try {
             return decodeWavFile(filePath);
         } catch (...) {
             // Fall back to ffmpeg pipe transcoding
         }
 
-        // 3. Transcode via ffmpeg to standard 44.1 kHz 16-bit stereo WAV in memory
+        // 4. Transcode via ffmpeg to standard 44.1 kHz 16-bit stereo WAV in memory
 #if defined(_WIN32)
         std::string cmd = "ffmpeg -v quiet -i \"" + filePath + "\" -f wav -ac 2 -ar 44100 -c:a pcm_s16le - 2>nul";
 #else
