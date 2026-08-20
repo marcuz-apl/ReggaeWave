@@ -40,8 +40,8 @@ private:
     void openAudioFileChooser();
     void handleRightsConfirmed(contracts::RightsBasis basis);
     void processImportedFile(const juce::File& file);
-    void handleExportRequested();
-    void performExportToFile(const juce::File& destinationFile);
+    void handleExportRequested(audio::AudioExportFormat format);
+    void performExportToFile(const juce::File& destinationFile, audio::AudioExportFormat format);
     void togglePlayback();
     void renderPreviewWavToDisk();
 
@@ -65,7 +65,8 @@ private:
     // Primary Actions
     juce::TextButton importButton_{"Import Track"};
     juce::TextButton playButton_{"Play"};
-    juce::TextButton exportButton_{"Export Master (MP3/WAV)"};
+    juce::TextButton exportMp3Button_{"Export MP3 (320k)"};
+    juce::TextButton exportWavButton_{"Export WAV (24-bit)"};
 
     // Panels
     ui::WaveformABView waveformView_;

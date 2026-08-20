@@ -57,9 +57,14 @@ MainComponent::MainComponent()
     playButton_.onClick = [this]() { togglePlayback(); };
     addAndMakeVisible(playButton_);
 
-    exportButton_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::bgElevated);
-    exportButton_.onClick = [this]() { handleExportRequested(); };
-    addAndMakeVisible(exportButton_);
+    exportMp3Button_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::accentGreen);
+    exportMp3Button_.setColour(juce::TextButton::textColourOffId, ui::ReggaeWaveTheme::bgDark);
+    exportMp3Button_.onClick = [this]() { handleExportRequested(audio::AudioExportFormat::Mp3_320Kbps); };
+    addAndMakeVisible(exportMp3Button_);
+
+    exportWavButton_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::bgElevated);
+    exportWavButton_.onClick = [this]() { handleExportRequested(audio::AudioExportFormat::Wav24Bit); };
+    addAndMakeVisible(exportWavButton_);
 
     // 3. Main Views
     addAndMakeVisible(waveformView_);
@@ -70,7 +75,7 @@ MainComponent::MainComponent()
     setAudioChannels(0, 2);
     startTimerHz(30);
 
-    setSize(920, 640);
+    setSize(960, 640);
 }
 
 MainComponent::~MainComponent() {
@@ -240,12 +245,9 @@ void MainComponent::renderPreviewWavToDisk() {
     const size_t totalSamples = dualTransport_.getTotalLengthSamples();
     const size_t renderSamples = std::min(totalSamples, size_t{44100 * 180}); // Up to 3 mins preview
     
-    // Render full mix to buffer
     std::vector<float> leftCh(renderSamples, 0.0f);
     std::vector<float> rightCh(renderSamples, 0.0f);
-    std::vector<float*> ptrs = {leftCh.data(), rightCh.data()};
 
-    // Snapshot transport
     audio::DualTransportSource tempTransport = dualTransport_;
     audio::DubEffectsProcessor tempDub = dubProcessor_;
     tempTransport.setPlayheadSample(0);
@@ -267,33 +269,40 @@ void MainComponent::renderPreviewWavToDisk() {
     }
 }
 
-void MainComponent::handleExportRequested() {
+void MainComponent::handleExportRequested(audio::AudioExportFormat format) {
     if (dualTransport_.getTotalLengthSamples() == 0) {
         statusBadgeLabel_.setText("No track loaded to export", juce::dontSendNotification);
         return;
     }
 
+    std::string ext = (format == audio::AudioExportFormat::Mp3_320Kbps) ? ".mp3" : ".wav";
+    std::string filter = (format == audio::AudioExportFormat::Mp3_320Kbps) ? "*.mp3" : "*.wav";
+    std::string title = (format == audio::AudioExportFormat::Mp3_320Kbps) 
+                        ? "Export Reggae MP3 (320 kbps)" 
+                        : "Export Reggae WAV (24-bit PCM)";
+
     auto defaultExportFile = juce::File::getCurrentWorkingDirectory()
                                 .getChildFile("exports")
-                                .getChildFile(juce::String(currentTrackTitle_) + "_reggae_master.wav");
+                                .getChildFile(juce::String(currentTrackTitle_) + "_reggae_master" + ext);
 
     fileChooser_ = std::make_unique<juce::FileChooser>(
-        "Export Reggae Master (-14 LUFS / -1 dBTP)",
+        title,
         defaultExportFile,
-        "*.wav;*.mp3"
+        filter
     );
 
     auto flags = juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting;
-    fileChooser_->launchAsync(flags, [this](const juce::FileChooser& fc) {
+    fileChooser_->launchAsync(flags, [this, format](const juce::FileChooser& fc) {
         auto dest = fc.getResult();
         if (dest.getFullPathName().isNotEmpty()) {
-            performExportToFile(dest);
+            performExportToFile(dest, format);
         }
     });
 }
 
-void MainComponent::performExportToFile(const juce::File& destinationFile) {
-    statusBadgeLabel_.setText("Mastering & Exporting: " + destinationFile.getFileName() + "...", juce::dontSendNotification);
+void MainComponent::performExportToFile(const juce::File& destinationFile, audio::AudioExportFormat format) {
+    std::string formatLabel = (format == audio::AudioExportFormat::Mp3_320Kbps) ? "MP3 (320k)" : "WAV (24-bit)";
+    statusBadgeLabel_.setText(juce::String("Mastering & Exporting ") + juce::String(formatLabel) + ": " + destinationFile.getFileName() + "...", juce::dontSendNotification);
     statusBadgeLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGold);
     repaint();
 
@@ -316,7 +325,14 @@ void MainComponent::performExportToFile(const juce::File& destinationFile) {
 
         // Master to -14.0 LUFS and -1.0 dBTP ceiling
         auto mastered = audio::AudioMasterer::master({leftCh, rightCh}, 44100.0);
-        auto wavBytes = audio::AudioExporter::encodeWav24Bit(mastered.masteredAudio, 44100.0);
+
+        // Encode based on format
+        std::vector<uint8_t> outputBytes;
+        if (format == audio::AudioExportFormat::Mp3_320Kbps) {
+            outputBytes = audio::AudioExporter::encodeMp3(mastered.masteredAudio, 44100.0);
+        } else {
+            outputBytes = audio::AudioExporter::encodeWav24Bit(mastered.masteredAudio, 44100.0);
+        }
 
         // Ensure parent directory exists
         destinationFile.getParentDirectory().createDirectory();
@@ -325,21 +341,34 @@ void MainComponent::performExportToFile(const juce::File& destinationFile) {
         if (!out.is_open()) {
             throw std::runtime_error("Could not open destination file for writing");
         }
-        out.write(reinterpret_cast<const char*>(wavBytes.data()), wavBytes.size());
+        out.write(reinterpret_cast<const char*>(outputBytes.data()), outputBytes.size());
         out.close();
 
-        // Also save a copy to workspace ./exports/ folder
+        // Also save copy into ./exports/ folder
         auto exportsDir = juce::File::getCurrentWorkingDirectory().getChildFile("exports");
         exportsDir.createDirectory();
         auto workspaceCopy = exportsDir.getChildFile(destinationFile.getFileName());
         if (workspaceCopy.getFullPathName() != destinationFile.getFullPathName()) {
             std::ofstream copyOut(workspaceCopy.getFullPathName().toStdString(), std::ios::binary);
             if (copyOut.is_open()) {
-                copyOut.write(reinterpret_cast<const char*>(wavBytes.data()), wavBytes.size());
+                copyOut.write(reinterpret_cast<const char*>(outputBytes.data()), outputBytes.size());
             }
         }
 
-        statusBadgeLabel_.setText("Master Exported: " + destinationFile.getFileName() + " (" + 
+        // Auto-export the counterpart format into ./exports/ as well for convenience
+        if (format == audio::AudioExportFormat::Wav24Bit) {
+            auto mp3Bytes = audio::AudioExporter::encodeMp3(mastered.masteredAudio, 44100.0);
+            auto mp3File = exportsDir.getChildFile(juce::String(currentTrackTitle_) + "_reggae_master.mp3");
+            std::ofstream mp3Out(mp3File.getFullPathName().toStdString(), std::ios::binary);
+            if (mp3Out.is_open()) mp3Out.write(reinterpret_cast<const char*>(mp3Bytes.data()), mp3Bytes.size());
+        } else {
+            auto wavBytes = audio::AudioExporter::encodeWav24Bit(mastered.masteredAudio, 44100.0);
+            auto wavFile = exportsDir.getChildFile(juce::String(currentTrackTitle_) + "_reggae_master.wav");
+            std::ofstream wavOut(wavFile.getFullPathName().toStdString(), std::ios::binary);
+            if (wavOut.is_open()) wavOut.write(reinterpret_cast<const char*>(wavBytes.data()), wavBytes.size());
+        }
+
+        statusBadgeLabel_.setText("Master Exported: " + destinationFile.getFileName() + " (" + formatLabel + ", " +
                                   juce::String(mastered.integratedLufs, 1) + " LUFS, " +
                                   juce::String(mastered.truePeakDb, 1) + " dBTP)", juce::dontSendNotification);
         statusBadgeLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGreen);
@@ -361,10 +390,12 @@ void MainComponent::resized() {
     appTitleLabel_.setBounds(headerArea.removeFromLeft(170));
     rightsStatusButton_.setBounds(headerArea.removeFromLeft(150).reduced(0, 6));
     headerArea.removeFromLeft(10);
-    statusBadgeLabel_.setBounds(headerArea.removeFromLeft(280));
-    exportButton_.setBounds(headerArea.removeFromRight(190));
-    headerArea.removeFromRight(10);
-    importButton_.setBounds(headerArea.removeFromRight(130));
+    statusBadgeLabel_.setBounds(headerArea.removeFromLeft(200));
+    exportMp3Button_.setBounds(headerArea.removeFromRight(150));
+    headerArea.removeFromRight(8);
+    exportWavButton_.setBounds(headerArea.removeFromRight(150));
+    headerArea.removeFromRight(8);
+    importButton_.setBounds(headerArea.removeFromRight(120));
 
     area.removeFromTop(16);
 
