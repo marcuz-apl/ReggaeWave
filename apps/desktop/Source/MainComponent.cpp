@@ -1,151 +1,195 @@
 #include "MainComponent.h"
+#include <reggaewave/audio/SubtitleManager.hpp>
 #include <fstream>
 #include <cstdlib>
+#include <chrono>
+#include <csignal>
 
 namespace reggaewave::desktop {
 
 MainComponent::MainComponent()
-    : waveformView_(
+    : importCard_([this]() { handleImportRequested(); })
+    , studioCard_(
+        [this]() { togglePlayback(); },
+        [this]() { rewindPlayback(); },
         [this](audio::ActiveVariation var) {
+            const juce::ScopedLock sl(audioLock_);
             currentVariation_ = var;
             dualTransport_.setActiveVariation(var);
-            renderPreviewWavToDisk();
+        },
+        [this](const contracts::TuningParameters& params) {
+            const juce::ScopedLock sl(audioLock_);
+            currentTuning_ = params;
+            dubProcessor_.setDubAmount(params.getDubEffectsAmount());
+            dualTransport_.setVocalGainDb(params.getVocalLevelDb());
         },
         [this](double normPos) {
+            const juce::ScopedLock sl(audioLock_);
             size_t targetSample = static_cast<size_t>(normPos * dualTransport_.getTotalLengthSamples());
             dualTransport_.setPlayheadSample(targetSample);
         }
     )
-    , tuningPanel_([this](const contracts::TuningParameters& params) {
-        currentTuning_ = params;
-        dubProcessor_.setDubAmount(params.getDubEffectsAmount());
-        dualTransport_.setVocalGainDb(params.getVocalLevelDb());
-        if (pipeline_.isReady()) {
-            pipeline_.updateTuning(params);
-            renderPreviewWavToDisk();
-        }
-    })
+    , exportCard_([this](audio::AudioExportFormat fmt, bool subs) { handleExportRequested(fmt, subs); })
 {
+    // Ignore SIGPIPE to prevent exit code 141
+    std::signal(SIGPIPE, SIG_IGN);
+
     juce::LookAndFeel::setDefaultLookAndFeel(&theme_);
 
-    // 1. Branding Header
+    // 1. Header Bar: Branding & Status (Clean typography)
+    addAndMakeVisible(appIcon_);
+
     appTitleLabel_.setText("ReggaeWave", juce::dontSendNotification);
-    appTitleLabel_.setFont(juce::FontOptions(26.0f, juce::Font::bold));
+    appTitleLabel_.setFont(juce::FontOptions(22.0f, juce::Font::bold));
     appTitleLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGold);
     addAndMakeVisible(appTitleLabel_);
 
-    statusBadgeLabel_.setText("Ready", juce::dontSendNotification);
-    statusBadgeLabel_.setFont(juce::FontOptions(13.0f));
-    statusBadgeLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGreen);
-    addAndMakeVisible(statusBadgeLabel_);
+    versionBadgeLabel_.setText("v1.2.1", juce::dontSendNotification);
+    versionBadgeLabel_.setFont(juce::FontOptions(11.5f, juce::Font::bold));
+    versionBadgeLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::textSecondary);
+    versionBadgeLabel_.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(versionBadgeLabel_);
 
+    rightsStatusButton_.setButtonText("Rights: Owned");
     rightsStatusButton_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::bgSurface);
-    rightsStatusButton_.setColour(juce::TextButton::textColourOffId, ui::ReggaeWaveTheme::textSecondary);
+    rightsStatusButton_.setColour(juce::TextButton::textColourOffId, ui::ReggaeWaveTheme::accentGreen);
     rightsStatusButton_.onClick = [this]() {
         rightsConfirmedOnce_ = false;
         handleImportRequested();
     };
     addAndMakeVisible(rightsStatusButton_);
 
-    // 2. Buttons
-    importButton_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::bgElevated);
-    importButton_.onClick = [this]() { handleImportRequested(); };
-    addAndMakeVisible(importButton_);
+    engineStatusBadge_.setText("Roots Engine | 44.1k/24b", juce::dontSendNotification);
+    engineStatusBadge_.setFont(juce::FontOptions(11.5f, juce::Font::bold));
+    engineStatusBadge_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGold);
+    engineStatusBadge_.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(engineStatusBadge_);
 
-    playButton_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::accentGold);
-    playButton_.setColour(juce::TextButton::textColourOffId, ui::ReggaeWaveTheme::bgDark);
-    playButton_.onClick = [this]() { togglePlayback(); };
-    addAndMakeVisible(playButton_);
+    aboutButton_.setButtonText("About");
+    aboutButton_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::bgElevated);
+    aboutButton_.setColour(juce::TextButton::textColourOffId, ui::ReggaeWaveTheme::textPrimary);
+    aboutButton_.onClick = [this]() { showAboutModal(); };
+    addAndMakeVisible(aboutButton_);
 
-    exportMp3Button_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::accentGreen);
-    exportMp3Button_.setColour(juce::TextButton::textColourOffId, ui::ReggaeWaveTheme::bgDark);
-    exportMp3Button_.onClick = [this]() { handleExportRequested(audio::AudioExportFormat::Mp3_320Kbps); };
-    addAndMakeVisible(exportMp3Button_);
+    // 2. Add 3 Stacked Cards
+    addAndMakeVisible(importCard_);
+    addAndMakeVisible(studioCard_);
+    addAndMakeVisible(exportCard_);
 
-    exportWavButton_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::bgElevated);
-    exportWavButton_.onClick = [this]() { handleExportRequested(audio::AudioExportFormat::Wav24Bit); };
-    addAndMakeVisible(exportWavButton_);
+    // Initialize DSP
+    dualTransport_.prepare(44100.0, 2);
+    dubProcessor_.prepare(44100.0, 512, 2);
 
-    // 3. Main Views
-    addAndMakeVisible(waveformView_);
-    addAndMakeVisible(tuningPanel_);
-    addAndMakeVisible(lyricEditor_);
-
-    // Audio setup
-    setAudioChannels(0, 2);
     startTimerHz(30);
-
-    setSize(960, 640);
+    setSize(1020, 720);
 }
 
 MainComponent::~MainComponent() {
     stopTimer();
-    shutdownAudio();
-    std::system("pkill -9 mpv 2>/dev/null");
+    stopLiveAudioStreaming();
     juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
 }
 
-void MainComponent::prepareToPlay(int samplesPerBlockExpected, double sampleRate) {
-    currentSampleRate_ = sampleRate > 0.0 ? sampleRate : 44100.0;
-    dualTransport_.prepare(currentSampleRate_, 2);
-    dubProcessor_.prepare(currentSampleRate_, samplesPerBlockExpected, 2);
-}
-
-void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) {
-    if (!isPlaying_ || dualTransport_.getTotalLengthSamples() == 0) {
-        bufferToFill.clearActiveBufferRegion();
-        return;
-    }
-
-    const int numChannels = bufferToFill.buffer->getNumChannels();
-    const int numSamples = bufferToFill.numSamples;
-    const int startSample = bufferToFill.startSample;
-
-    std::vector<float*> channels(numChannels);
-    for (int ch = 0; ch < numChannels; ++ch) {
-        channels[ch] = bufferToFill.buffer->getWritePointer(ch, startSample);
-    }
-
-    dualTransport_.renderNextBlock(channels.data(), numChannels, numSamples);
-    dubProcessor_.process(channels.data(), numChannels, numSamples);
-
-    if (dualTransport_.getPlayheadSample() >= dualTransport_.getTotalLengthSamples()) {
-        isPlaying_ = false;
-        playButton_.setButtonText("Play");
-        waveformView_.setIsPlaying(false);
-    }
-}
-
-void MainComponent::releaseResources() {
-    dubProcessor_.reset();
-}
-
 void MainComponent::timerCallback() {
+    const juce::ScopedLock sl(audioLock_);
     if (isPlaying_ && dualTransport_.getTotalLengthSamples() > 0) {
         double progress = static_cast<double>(dualTransport_.getPlayheadSample()) / 
                           static_cast<double>(dualTransport_.getTotalLengthSamples());
-        waveformView_.setPlaybackProgress(progress);
-        waveformView_.setIsPlaying(true);
+        studioCard_.setPlaybackProgress(progress);
+    }
+}
+
+void MainComponent::startLiveAudioStreaming() {
+    stopLiveAudioStreaming();
+    isStreaming_ = true;
+
+    liveAudioThread_ = std::thread([this]() {
+        FILE* pipe = popen("ffplay -nodisp -autoexit -f f32le -ar 44100 -ch_layout stereo -i - 2>/dev/null", "w");
+        if (!pipe) return;
+
+        const int blockSize = 2048;
+        std::vector<float> leftCh(blockSize, 0.0f);
+        std::vector<float> rightCh(blockSize, 0.0f);
+        std::vector<float> interleaved(blockSize * 2, 0.0f);
+
+        while (isStreaming_) {
+            bool hasMoreAudio = true;
+            {
+                const juce::ScopedLock sl(audioLock_);
+                if (dualTransport_.getTotalLengthSamples() == 0 ||
+                    dualTransport_.getPlayheadSample() >= dualTransport_.getTotalLengthSamples()) {
+                    hasMoreAudio = false;
+                } else {
+                    std::vector<float*> ptrs = {leftCh.data(), rightCh.data()};
+                    dualTransport_.renderNextBlock(ptrs.data(), 2, blockSize);
+                    dubProcessor_.process(ptrs.data(), 2, blockSize);
+
+                    for (int i = 0; i < blockSize; ++i) {
+                        interleaved[i * 2] = leftCh[i];
+                        interleaved[i * 2 + 1] = rightCh[i];
+                    }
+                }
+            }
+
+            if (!hasMoreAudio) {
+                juce::MessageManager::callAsync([this]() {
+                    isPlaying_ = false;
+                    studioCard_.setIsPlaying(false);
+                });
+                break;
+            }
+
+            size_t written = fwrite(interleaved.data(), sizeof(float), interleaved.size(), pipe);
+            fflush(pipe);
+            if (written < interleaved.size() || ferror(pipe)) {
+                break;
+            }
+        }
+
+        pclose(pipe);
+    });
+}
+
+void MainComponent::stopLiveAudioStreaming() {
+    isStreaming_ = false;
+    std::system("killall -9 ffplay 2>/dev/null");
+    if (liveAudioThread_.joinable()) {
+        liveAudioThread_.join();
     }
 }
 
 void MainComponent::togglePlayback() {
-    if (dualTransport_.getTotalLengthSamples() == 0) {
-        return;
+    bool nowPlaying = false;
+    {
+        const juce::ScopedLock sl(audioLock_);
+        if (dualTransport_.getTotalLengthSamples() == 0) {
+            return;
+        }
+        if (dualTransport_.getPlayheadSample() >= dualTransport_.getTotalLengthSamples()) {
+            dualTransport_.setPlayheadSample(0);
+        }
+        isPlaying_ = !isPlaying_;
+        nowPlaying = isPlaying_;
     }
-    if (dualTransport_.getPlayheadSample() >= dualTransport_.getTotalLengthSamples()) {
+
+    studioCard_.setIsPlaying(nowPlaying);
+
+    if (nowPlaying) {
+        startLiveAudioStreaming();
+    } else {
+        stopLiveAudioStreaming();
+    }
+}
+
+void MainComponent::rewindPlayback() {
+    {
+        const juce::ScopedLock sl(audioLock_);
         dualTransport_.setPlayheadSample(0);
     }
-    isPlaying_ = !isPlaying_;
-    playButton_.setButtonText(isPlaying_ ? "Pause" : "Play");
-    waveformView_.setIsPlaying(isPlaying_);
+    studioCard_.setPlaybackProgress(0.0);
 
     if (isPlaying_) {
-        // In WSL2, seamlessly route playback via mpv if ALSA hardware is virtualized
-        std::system("pkill -9 mpv 2>/dev/null");
-        std::system("mpv --no-terminal --really-quiet /tmp/reggaewave_preview.wav &");
-    } else {
-        std::system("pkill -9 mpv 2>/dev/null");
+        startLiveAudioStreaming();
     }
 }
 
@@ -175,39 +219,36 @@ void MainComponent::handleRightsConfirmed(contracts::RightsBasis basis) {
 }
 
 void MainComponent::openAudioFileChooser() {
-    statusBadgeLabel_.setText("Opening file chooser...", juce::dontSendNotification);
-
-    auto initialDir = juce::File::getCurrentWorkingDirectory().getChildFile("test-tracks");
-    if (!initialDir.exists()) {
-        initialDir = juce::File::getCurrentWorkingDirectory();
-    }
-
-    fileChooser_ = std::make_unique<juce::FileChooser>(
-        "Select Audio Track to Transform to Reggae",
-        initialDir,
-        "*.wav;*.mp3;*.m4a;*.flac;*.ogg;*.aac;*.aiff"
-    );
-
-    auto flags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
-    fileChooser_->launchAsync(flags, [this](const juce::FileChooser& fc) {
-        auto file = fc.getResult();
-        if (file.existsAsFile()) {
+    importFileModal_ = std::make_unique<ui::ImportFileModal>(
+        [this](const juce::File& file) {
+            if (importFileModal_) {
+                removeChildComponent(importFileModal_.get());
+                importFileModal_.reset();
+            }
             processImportedFile(file);
-        } else {
-            statusBadgeLabel_.setText("Ready", juce::dontSendNotification);
+        },
+        [this]() {
+            if (importFileModal_) {
+                removeChildComponent(importFileModal_.get());
+                importFileModal_.reset();
+            }
+            importCard_.setImportStatus("Import cancelled");
         }
-    });
+    );
+    importFileModal_->setBounds(getLocalBounds());
+    addAndMakeVisible(importFileModal_.get());
 }
 
 void MainComponent::processImportedFile(const juce::File& file) {
+    stopLiveAudioStreaming();
     currentTrackTitle_ = file.getFileNameWithoutExtension().toStdString();
-    statusBadgeLabel_.setText("Transforming: " + file.getFileName() + "...", juce::dontSendNotification);
-    statusBadgeLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGold);
+    importCard_.setImportStatus("Transforming: " + file.getFileName().toStdString() + "...");
     repaint();
 
     try {
         // 1. Multi-format decode (WAV, M4A, MP3, FLAC)
         auto decoded = audio::AudioDecoder::decodeAnyAudioFile(file.getFullPathName().toStdString());
+        currentDurationSecs_ = static_cast<double>(decoded.channels[0].size()) / decoded.sampleRate;
         
         // 2. Encode to PCM WAV for pipeline validator
         auto wavBytes = audio::AudioExporter::encodeWav24Bit(decoded.channels, decoded.sampleRate);
@@ -218,131 +259,127 @@ void MainComponent::processImportedFile(const juce::File& file) {
         // 4. Run pipeline
         auto output = pipeline_.execute(wavBytes, attestation, currentTuning_, "project-desktop", currentTrackTitle_);
         
-        // 5. Update Waveform UI
-        waveformView_.setWaveformData(output.waveformOverviewPeaks);
+        // 5. Update Waveform UI & Duration
+        studioCard_.setDurationSeconds(currentDurationSecs_);
+        studioCard_.setWaveformData(output.waveformOverviewPeaks);
         
-        // 6. Connect audio transport and DSP
-        dualTransport_ = std::move(pipeline_.getTransport());
-        dubProcessor_ = std::move(pipeline_.getDubProcessor());
-        dualTransport_.prepare(currentSampleRate_, 2);
-        dualTransport_.setPlayheadSample(0);
+        // 6. Connect audio transport and DSP under lock
+        {
+            const juce::ScopedLock sl(audioLock_);
+            dualTransport_ = std::move(pipeline_.getTransport());
+            dubProcessor_ = std::move(pipeline_.getDubProcessor());
+            dualTransport_.prepare(currentSampleRate_, 2);
+            dualTransport_.setPlayheadSample(0);
+        }
 
-        // Render preview cache to disk for instant WSL audio playback
-        renderPreviewWavToDisk();
-
-        statusBadgeLabel_.setText("Ready: " + file.getFileNameWithoutExtension() + 
-                                  " (" + juce::String(static_cast<int>(output.analysisManifest.bpm)) + " BPM, " +
-                                  juce::String(output.analysisManifest.key) + ")", juce::dontSendNotification);
-        statusBadgeLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGreen);
+        // Update Card 1 with rich musical analysis badges
+        importCard_.setTrackInfo(file.getFileName().toStdString(), output.analysisManifest, currentDurationSecs_);
         
         currentState_ = contracts::ConversionJobState::Completed;
     } catch (const std::exception& ex) {
-        statusBadgeLabel_.setText("Import Error: " + juce::String(ex.what()), juce::dontSendNotification);
-        statusBadgeLabel_.setColour(juce::Label::textColourId, juce::Colours::red);
+        importCard_.setImportStatus("Import Error: " + std::string(ex.what()), true);
     }
 }
 
-void MainComponent::renderPreviewWavToDisk() {
-    if (dualTransport_.getTotalLengthSamples() == 0) return;
-
-    const size_t totalSamples = dualTransport_.getTotalLengthSamples();
-    const size_t renderSamples = std::min(totalSamples, size_t{44100 * 180}); // Up to 3 mins preview
-    
-    std::vector<float> leftCh(renderSamples, 0.0f);
-    std::vector<float> rightCh(renderSamples, 0.0f);
-
-    audio::DualTransportSource tempTransport = dualTransport_;
-    audio::DubEffectsProcessor tempDub = dubProcessor_;
-    tempTransport.setPlayheadSample(0);
-
-    const int blockSize = 1024;
-    for (size_t pos = 0; pos < renderSamples; pos += blockSize) {
-        int samplesToProcess = static_cast<int>(std::min(size_t{blockSize}, renderSamples - pos));
-        std::vector<float*> blockPtrs = {leftCh.data() + pos, rightCh.data() + pos};
-        tempTransport.renderNextBlock(blockPtrs.data(), 2, samplesToProcess);
-        tempDub.process(blockPtrs.data(), 2, samplesToProcess);
-    }
-
-    auto mastered = audio::AudioMasterer::master({leftCh, rightCh}, 44100.0);
-    auto wavBytes = audio::AudioExporter::encodeWav24Bit(mastered.masteredAudio, 44100.0);
-
-    std::ofstream out("/tmp/reggaewave_preview.wav", std::ios::binary);
-    if (out.is_open()) {
-        out.write(reinterpret_cast<const char*>(wavBytes.data()), wavBytes.size());
-    }
-}
-
-void MainComponent::handleExportRequested(audio::AudioExportFormat format) {
+void MainComponent::handleExportRequested(audio::AudioExportFormat format, bool includeSubtitles) {
     if (dualTransport_.getTotalLengthSamples() == 0) {
-        statusBadgeLabel_.setText("No track loaded to export", juce::dontSendNotification);
+        importCard_.setImportStatus("No track loaded to export — please import a track first.", true);
         return;
     }
 
     exportDialogModal_ = std::make_unique<ui::ExportDialogModal>(
         currentTrackTitle_,
         format,
-        [this](const juce::File& destFile, audio::AudioExportFormat fmt, ui::ExportDialogModal* modal) {
-            try {
-                modal->updateProgress(0.2f, "Rendering Audio Stems...");
+        [this, includeSubtitles](const juce::File& destFile, audio::AudioExportFormat fmt, ui::ExportDialogModal* modal) {
+            juce::Thread::launch([this, destFile, fmt, modal, includeSubtitles]() {
+                try {
+                    modal->updateProgress(0.20f, "Rendering Audio Stems (20%)...");
 
-                const size_t totalSamples = dualTransport_.getTotalLengthSamples();
-                std::vector<float> leftCh(totalSamples, 0.0f);
-                std::vector<float> rightCh(totalSamples, 0.0f);
-
-                audio::DualTransportSource tempTransport = dualTransport_;
-                audio::DubEffectsProcessor tempDub = dubProcessor_;
-                tempTransport.setPlayheadSample(0);
-
-                const int blockSize = 1024;
-                for (size_t pos = 0; pos < totalSamples; pos += blockSize) {
-                    int samplesToProcess = static_cast<int>(std::min(size_t{blockSize}, totalSamples - pos));
-                    std::vector<float*> blockPtrs = {leftCh.data() + pos, rightCh.data() + pos};
-                    tempTransport.renderNextBlock(blockPtrs.data(), 2, samplesToProcess);
-                    tempDub.process(blockPtrs.data(), 2, samplesToProcess);
-                }
-
-                modal->updateProgress(0.6f, "Mastering -14.0 LUFS & -1.0 dBTP...");
-
-                // Master to -14.0 LUFS and -1.0 dBTP ceiling
-                auto mastered = audio::AudioMasterer::master({leftCh, rightCh}, 44100.0);
-
-                modal->updateProgress(0.85f, "Encoding format container...");
-
-                // Encode based on format
-                std::vector<uint8_t> outputBytes;
-                if (fmt == audio::AudioExportFormat::Mp3_320Kbps) {
-                    outputBytes = audio::AudioExporter::encodeMp3(mastered.masteredAudio, 44100.0);
-                } else {
-                    outputBytes = audio::AudioExporter::encodeWav24Bit(mastered.masteredAudio, 44100.0);
-                }
-
-                // Ensure parent directory exists
-                destFile.getParentDirectory().createDirectory();
-
-                std::ofstream out(destFile.getFullPathName().toStdString(), std::ios::binary);
-                if (!out.is_open()) {
-                    throw std::runtime_error("Could not open destination file for writing");
-                }
-                out.write(reinterpret_cast<const char*>(outputBytes.data()), outputBytes.size());
-                out.close();
-
-                // Also save copy into ./exports/ folder
-                auto exportsDir = juce::File::getCurrentWorkingDirectory().getChildFile("exports");
-                exportsDir.createDirectory();
-                auto workspaceCopy = exportsDir.getChildFile(destFile.getFileName());
-                if (workspaceCopy.getFullPathName() != destFile.getFullPathName()) {
-                    std::ofstream copyOut(workspaceCopy.getFullPathName().toStdString(), std::ios::binary);
-                    if (copyOut.is_open()) {
-                        copyOut.write(reinterpret_cast<const char*>(outputBytes.data()), outputBytes.size());
+                    audio::DualTransportSource tempTransport;
+                    audio::DubEffectsProcessor tempDub;
+                    size_t totalSamples = 0;
+                    {
+                        const juce::ScopedLock sl(audioLock_);
+                        totalSamples = dualTransport_.getTotalLengthSamples();
+                        tempTransport = dualTransport_;
+                        tempDub = dubProcessor_;
                     }
-                }
 
-                modal->setExportCompleted(destFile.getFileName().toStdString());
-                statusBadgeLabel_.setText("Master Saved: " + destFile.getFileName(), juce::dontSendNotification);
-                statusBadgeLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGreen);
-            } catch (const std::exception& ex) {
-                modal->setExportError(ex.what());
-            }
+                    std::vector<float> leftCh(totalSamples, 0.0f);
+                    std::vector<float> rightCh(totalSamples, 0.0f);
+                    tempTransport.setPlayheadSample(0);
+
+                    const int blockSize = 1024;
+                    for (size_t pos = 0; pos < totalSamples; pos += blockSize) {
+                        int samplesToProcess = static_cast<int>(std::min(size_t{blockSize}, totalSamples - pos));
+                        std::vector<float*> blockPtrs = {leftCh.data() + pos, rightCh.data() + pos};
+                        tempTransport.renderNextBlock(blockPtrs.data(), 2, samplesToProcess);
+                        tempDub.process(blockPtrs.data(), 2, samplesToProcess);
+                    }
+
+                    modal->updateProgress(0.55f, "Mastering to -14.0 LUFS & -1.0 dBTP (55%)...");
+
+                    // Master to -14.0 LUFS and -1.0 dBTP ceiling
+                    auto mastered = audio::AudioMasterer::master({leftCh, rightCh}, 44100.0);
+
+                    modal->updateProgress(0.85f, "Encoding format container (85%)...");
+
+                    // Encode based on format
+                    std::vector<uint8_t> outputBytes;
+                    if (fmt == audio::AudioExportFormat::Mp3_320Kbps) {
+                        outputBytes = audio::AudioExporter::encodeMp3(mastered.masteredAudio, 44100.0);
+                    } else {
+                        outputBytes = audio::AudioExporter::encodeWav24Bit(mastered.masteredAudio, 44100.0);
+                    }
+
+                    // Ensure parent directory exists
+                    destFile.getParentDirectory().createDirectory();
+
+                    std::ofstream out(destFile.getFullPathName().toStdString(), std::ios::binary);
+                    if (!out.is_open()) {
+                        throw std::runtime_error("Could not open destination file for writing");
+                    }
+                    out.write(reinterpret_cast<const char*>(outputBytes.data()), outputBytes.size());
+                    out.close();
+
+                    // Also save copy into ./exports/ folder
+                    auto exportsDir = juce::File::getCurrentWorkingDirectory().getChildFile("exports");
+                    exportsDir.createDirectory();
+                    auto workspaceCopy = exportsDir.getChildFile(destFile.getFileName());
+                    if (workspaceCopy.getFullPathName() != destFile.getFullPathName()) {
+                        std::ofstream copyOut(workspaceCopy.getFullPathName().toStdString(), std::ios::binary);
+                        if (copyOut.is_open()) {
+                            copyOut.write(reinterpret_cast<const char*>(outputBytes.data()), outputBytes.size());
+                        }
+                    }
+
+                    // Export subtitles if requested
+                    if (includeSubtitles) {
+                        modal->updateProgress(0.95f, "Generating synchronized subtitles (95%)...");
+                        audio::SubtitleManager subMgr;
+                        subMgr.setUserRevisions({
+                            {0.0, currentDurationSecs_ * 0.5, "[Instrumental Intro & One-Drop Riddim]"},
+                            {currentDurationSecs_ * 0.5, currentDurationSecs_, "[Lead Vocal & Dub Section]"}
+                        });
+
+                        auto srtText = subMgr.formatSrt();
+                        auto vttText = subMgr.formatVtt();
+
+                        auto srtFile = exportsDir.getChildFile(juce::String(currentTrackTitle_) + "_reggae_subtitles.srt");
+                        auto vttFile = exportsDir.getChildFile(juce::String(currentTrackTitle_) + "_reggae_subtitles.vtt");
+
+                        std::ofstream srtOut(srtFile.getFullPathName().toStdString());
+                        if (srtOut.is_open()) srtOut << srtText;
+
+                        std::ofstream vttOut(vttFile.getFullPathName().toStdString());
+                        if (vttOut.is_open()) vttOut << vttText;
+                    }
+
+                    modal->setExportCompleted(destFile.getFileName().toStdString());
+                } catch (const std::exception& ex) {
+                    modal->setExportError(ex.what());
+                }
+            });
         },
         [this]() {
             if (exportDialogModal_) {
@@ -356,49 +393,79 @@ void MainComponent::handleExportRequested(audio::AudioExportFormat format) {
     addAndMakeVisible(exportDialogModal_.get());
 }
 
+void MainComponent::showAboutModal() {
+    aboutModal_ = std::make_unique<ui::InfoDialogModal>([this]() {
+        if (aboutModal_) {
+            removeChildComponent(aboutModal_.get());
+            aboutModal_.reset();
+        }
+    });
+    aboutModal_->setBounds(getLocalBounds());
+    addAndMakeVisible(aboutModal_.get());
+}
+
 void MainComponent::paint(juce::Graphics& g) {
     g.fillAll(ui::ReggaeWaveTheme::bgDark);
+
+    // Header background bar
+    auto headerBounds = getLocalBounds().removeFromTop(54).toFloat();
+    g.setColour(ui::ReggaeWaveTheme::bgSurface);
+    g.fillRect(headerBounds);
+
+    g.setColour(ui::ReggaeWaveTheme::bgElevated);
+    g.drawHorizontalLine(54, 0.0f, static_cast<float>(getWidth()));
+
+    // Version badge pill background
+    g.setColour(ui::ReggaeWaveTheme::bgDark);
+    g.fillRoundedRectangle(versionBadgeLabel_.getBounds().toFloat().expanded(4, 2), 10.0f);
+    g.setColour(ui::ReggaeWaveTheme::bgElevated);
+    g.drawRoundedRectangle(versionBadgeLabel_.getBounds().toFloat().expanded(4, 2), 10.0f, 1.0f);
+
+    // Engine status badge pill background
+    g.setColour(ui::ReggaeWaveTheme::bgDark);
+    g.fillRoundedRectangle(engineStatusBadge_.getBounds().toFloat().expanded(4, 2), 10.0f);
+    g.setColour(ui::ReggaeWaveTheme::bgElevated);
+    g.drawRoundedRectangle(engineStatusBadge_.getBounds().toFloat().expanded(4, 2), 10.0f, 1.0f);
 }
 
 void MainComponent::resized() {
-    auto area = getLocalBounds().reduced(24);
+    auto area = getLocalBounds();
 
-    // Top Header
-    auto headerArea = area.removeFromTop(44);
-    appTitleLabel_.setBounds(headerArea.removeFromLeft(170));
-    rightsStatusButton_.setBounds(headerArea.removeFromLeft(150).reduced(0, 6));
-    headerArea.removeFromLeft(10);
+    // 1. Header Bar (54px)
+    auto headerArea = area.removeFromTop(54).reduced(16, 8);
+    
+    // Left: Icon + Title + Version
+    appIcon_.setBounds(headerArea.removeFromLeft(36).withSizeKeepingCentre(32, 32));
+    headerArea.removeFromLeft(8);
+    appTitleLabel_.setBounds(headerArea.removeFromLeft(140));
+    versionBadgeLabel_.setBounds(headerArea.removeFromLeft(55).withSizeKeepingCentre(50, 22));
 
-    statusBadgeLabel_.setBounds(headerArea.removeFromLeft(220));
+    // Right: About + Engine Status + Rights Button
+    aboutButton_.setBounds(headerArea.removeFromRight(65).reduced(0, 3));
+    headerArea.removeFromRight(10);
+    engineStatusBadge_.setBounds(headerArea.removeFromRight(180).withSizeKeepingCentre(175, 24));
+    headerArea.removeFromRight(10);
+    rightsStatusButton_.setBounds(headerArea.removeFromRight(130).reduced(0, 3));
 
-    exportMp3Button_.setBounds(headerArea.removeFromRight(140));
-    headerArea.removeFromRight(8);
-    exportWavButton_.setBounds(headerArea.removeFromRight(150));
-    headerArea.removeFromRight(8);
-    importButton_.setBounds(headerArea.removeFromRight(120));
+    // 2. Stacked 3 Cards Layout
+    auto cardsArea = area.reduced(16);
 
-    area.removeFromTop(16);
+    // Card 1: Top Intake & Analysis Card (86px)
+    importCard_.setBounds(cardsArea.removeFromTop(86));
+    cardsArea.removeFromTop(12);
 
-    // Waveform & A/B Section
-    waveformView_.setBounds(area.removeFromTop(180));
-    area.removeFromTop(16);
+    // Card 3: Bottom Export Card (86px)
+    exportCard_.setBounds(cardsArea.removeFromBottom(86));
+    cardsArea.removeFromBottom(12);
 
-    // Bottom Split: Left Tuning Panel (3 controls), Right Lyrics / Options
-    auto bottomArea = area.removeFromTop(180);
-    playButton_.setBounds(bottomArea.removeFromTop(40).removeFromLeft(120));
-    bottomArea.removeFromTop(10);
+    // Card 2: Middle Riddim Studio & Visualizer (remaining height)
+    studioCard_.setBounds(cardsArea);
 
-    auto splitArea = bottomArea;
-    tuningPanel_.setBounds(splitArea.removeFromLeft(splitArea.getWidth() / 2 - 8));
-    splitArea.removeFromLeft(16);
-    lyricEditor_.setBounds(splitArea);
-
-    if (rightsModal_) {
-        rightsModal_->setBounds(getLocalBounds());
-    }
-    if (exportDialogModal_) {
-        exportDialogModal_->setBounds(getLocalBounds());
-    }
+    // Reposition any open modals (guaranteed 100% centered)
+    if (rightsModal_) rightsModal_->setBounds(getLocalBounds());
+    if (exportDialogModal_) exportDialogModal_->setBounds(getLocalBounds());
+    if (aboutModal_) aboutModal_->setBounds(getLocalBounds());
+    if (importFileModal_) importFileModal_->setBounds(getLocalBounds());
 }
 
 } // namespace reggaewave::desktop

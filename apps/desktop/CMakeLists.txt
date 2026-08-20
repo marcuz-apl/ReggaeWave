@@ -31,6 +31,18 @@ target_sources(ReggaeWave PRIVATE
     Source/UI/TuningPanel.cpp
     Source/UI/WaveformABView.h
     Source/UI/WaveformABView.cpp
+    Source/UI/ReggaeWaveIcon.h
+    Source/UI/ReggaeWaveIcon.cpp
+    Source/UI/ImportCard.h
+    Source/UI/ImportCard.cpp
+    Source/UI/StudioPlaybackCard.h
+    Source/UI/StudioPlaybackCard.cpp
+    Source/UI/ExportDeckCard.h
+    Source/UI/ExportDeckCard.cpp
+    Source/UI/InfoDialogModal.h
+    Source/UI/InfoDialogModal.cpp
+    Source/UI/ImportFileModal.h
+    Source/UI/ImportFileModal.cpp
     Source/UI/InlineExportProgressBar.h
     Source/UI/InlineExportProgressBar.cpp
     Source/UI/ExportDialogModal.h

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <juce_gui_extra/juce_gui_extra.h>
-#include <juce_audio_utils/juce_audio_utils.h>
 
 #include <reggaewave/contracts/JobState.hpp>
 #include <reggaewave/contracts/TuningParameters.hpp>
@@ -12,25 +11,26 @@
 #include <reggaewave/audio/AudioMasterer.hpp>
 
 #include "UI/ReggaeWaveTheme.h"
-#include "UI/TuningPanel.h"
-#include "UI/WaveformABView.h"
+#include "UI/ReggaeWaveIcon.h"
+#include "UI/ImportCard.h"
+#include "UI/StudioPlaybackCard.h"
+#include "UI/ExportDeckCard.h"
 #include "UI/RightsAttestationModal.h"
 #include "UI/ExportDialogModal.h"
-#include "UI/LyricEditorView.h"
+#include "UI/InfoDialogModal.h"
+#include "UI/ImportFileModal.h"
 
 #include <memory>
 #include <string>
+#include <thread>
+#include <atomic>
 
 namespace reggaewave::desktop {
 
-class MainComponent : public juce::AudioAppComponent, public juce::Timer {
+class MainComponent : public juce::Component, public juce::Timer {
 public:
     MainComponent();
     ~MainComponent() override;
-
-    void prepareToPlay(int samplesPerBlockExpected, double sampleRate) override;
-    void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) override;
-    void releaseResources() override;
 
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -41,40 +41,49 @@ private:
     void openAudioFileChooser();
     void handleRightsConfirmed(contracts::RightsBasis basis);
     void processImportedFile(const juce::File& file);
-    void handleExportRequested(audio::AudioExportFormat format);
+    void handleExportRequested(audio::AudioExportFormat format, bool includeSubtitles);
     void togglePlayback();
-    void renderPreviewWavToDisk();
+    void rewindPlayback();
+    void startLiveAudioStreaming();
+    void stopLiveAudioStreaming();
+    void showAboutModal();
 
-    // Custom Theme
+    // Theme & Audio Thread Synchronization
     ui::ReggaeWaveTheme theme_;
+    juce::CriticalSection audioLock_;
 
-    // Transformation Pipeline & DSP
+    // Live Streaming Thread for Real-Time On-The-Fly DSP Tuning
+    std::atomic<bool> isStreaming_{false};
+    std::thread liveAudioThread_;
+
+    // DSP & Pipeline
     audio::ConversionPipeline pipeline_;
     audio::DualTransportSource dualTransport_;
     audio::DubEffectsProcessor dubProcessor_;
     contracts::TuningParameters currentTuning_{70, 20, 0.0};
     double currentSampleRate_ = 44100.0;
+    double currentDurationSecs_ = 0.0;
     std::string currentTrackTitle_ = "Track";
     audio::ActiveVariation currentVariation_ = audio::ActiveVariation::VariationA;
 
-    // UI Header
+    // Header Bar
+    ui::ReggaeWaveIcon appIcon_;
     juce::Label appTitleLabel_;
-    juce::Label statusBadgeLabel_;
-    juce::TextButton rightsStatusButton_{"Rights: Confirmed"};
+    juce::Label versionBadgeLabel_;
+    juce::TextButton rightsStatusButton_{"Rights: Owned"};
+    juce::Label engineStatusBadge_;
+    juce::TextButton aboutButton_{"About"};
 
-    // Primary Actions
-    juce::TextButton importButton_{"Import Track"};
-    juce::TextButton playButton_{"Play"};
-    juce::TextButton exportMp3Button_{"Export MP3 (320k)"};
-    juce::TextButton exportWavButton_{"Export WAV (24-bit)"};
+    // 3 Stacked Functional Cards
+    ui::ImportCard importCard_;
+    ui::StudioPlaybackCard studioCard_;
+    ui::ExportDeckCard exportCard_;
 
-    // Panels
-    ui::WaveformABView waveformView_;
-    ui::TuningPanel tuningPanel_;
-    ui::LyricEditorView lyricEditor_;
+    // Modal Overlays (Always 100% Centered)
     std::unique_ptr<ui::RightsAttestationModal> rightsModal_;
     std::unique_ptr<ui::ExportDialogModal> exportDialogModal_;
-    std::unique_ptr<juce::FileChooser> fileChooser_;
+    std::unique_ptr<ui::InfoDialogModal> aboutModal_;
+    std::unique_ptr<ui::ImportFileModal> importFileModal_;
 
     bool isPlaying_ = false;
     bool rightsConfirmedOnce_ = false;

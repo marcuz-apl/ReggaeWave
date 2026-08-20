@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 #include "UI/ReggaeWaveTheme.h"
+#include "UI/ReggaeWaveIcon.h"
 
 namespace reggaewave::desktop {
 
@@ -8,31 +9,31 @@ MainWindow::MainWindow(const juce::String& name)
                      ui::ReggaeWaveTheme::bgDark,
                      DocumentWindow::allButtons)
 {
-    setUsingNativeTitleBar(true);
+    // Use custom dark titlebar with embedded golden icon for reliable centering & branding
+    setUsingNativeTitleBar(false);
+    setIcon(ui::ReggaeWaveIcon::createIconImage(64));
+    setTitleBarHeight(32);
+
     mainComponent_ = std::make_unique<MainComponent>();
     setContentOwned(mainComponent_.release(), true);
 
     setResizable(true, true);
-    setResizeLimits(800, 560, 1920, 1080);
+    setResizeLimits(860, 600, 1920, 1080);
 
-    const int targetWidth = 980;
-    const int targetHeight = 660;
+    const int targetWidth = 1040;
+    const int targetHeight = 740;
 
-    centreWithSize(targetWidth, targetHeight);
-    setVisible(true);
-
-    // Re-center explicitly after native peer creation for X11 / WSLg
-    centreWithSize(targetWidth, targetHeight);
     auto* display = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay();
     if (display != nullptr) {
         auto area = display->userArea;
-        const int x = area.getX() + (area.getWidth() - targetWidth) / 2;
-        const int y = area.getY() + (area.getHeight() - targetHeight) / 2;
+        const int x = area.getX() + std::max(0, (area.getWidth() - targetWidth) / 2);
+        const int y = area.getY() + std::max(0, (area.getHeight() - targetHeight) / 2);
         setBounds(x, y, targetWidth, targetHeight);
-        if (auto* peer = getPeer()) {
-            peer->setBounds(juce::Rectangle<int>(x, y, targetWidth, targetHeight), true);
-        }
+    } else {
+        centreWithSize(targetWidth, targetHeight);
     }
+
+    setVisible(true);
 }
 
 void MainWindow::closeButtonPressed() {

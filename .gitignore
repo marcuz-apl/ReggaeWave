@@ -7,6 +7,7 @@ compile_commands.json
 
 # Local test media (kept out of Git history)
 test-tracks/
+exports/
 *.wav
 *.mp3
 *.flac

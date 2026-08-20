@@ -9,6 +9,7 @@
 #include <string>
 #include <memory>
 #include <algorithm>
+#include <cmath>
 
 namespace reggaewave::audio {
 
@@ -42,21 +43,21 @@ public:
         auto skankA = ReggaeSkankGenerator::synthesize(totalSamples, analysis.beatGrid, analysis.chordTimeline, true, reggaeIntensity);
         auto skankB = ReggaeSkankGenerator::synthesize(totalSamples, analysis.beatGrid, analysis.chordTimeline, false, reggaeIntensity);
 
-        // 4. Mix stems for Variation A (Classic Roots / One-Drop)
+        // 4. Mix stems for Variation A (Classic Roots / One-Drop) with soft saturation
         result.variationA.assign(2, std::vector<float>(totalSamples, 0.0f));
         for (int ch = 0; ch < 2; ++ch) {
             for (size_t i = 0; i < totalSamples; ++i) {
-                float mix = drumsA[ch][i] * 0.75f + bass[ch][i] * 0.85f + skankA[ch][i] * 0.65f;
-                result.variationA[ch][i] = std::clamp(mix, -1.0f, 1.0f);
+                float rawMix = drumsA[ch][i] * 0.55f + bass[ch][i] * 0.55f + skankA[ch][i] * 0.40f;
+                result.variationA[ch][i] = std::tanh(rawMix);
             }
         }
 
-        // 5. Mix stems for Variation B (Modern Steppers)
+        // 5. Mix stems for Variation B (Modern Steppers) with soft saturation
         result.variationB.assign(2, std::vector<float>(totalSamples, 0.0f));
         for (int ch = 0; ch < 2; ++ch) {
             for (size_t i = 0; i < totalSamples; ++i) {
-                float mix = drumsB[ch][i] * 0.85f + bass[ch][i] * 0.80f + skankB[ch][i] * 0.60f;
-                result.variationB[ch][i] = std::clamp(mix, -1.0f, 1.0f);
+                float rawMix = drumsB[ch][i] * 0.60f + bass[ch][i] * 0.55f + skankB[ch][i] * 0.40f;
+                result.variationB[ch][i] = std::tanh(rawMix);
             }
         }
 

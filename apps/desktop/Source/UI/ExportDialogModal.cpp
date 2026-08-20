@@ -14,17 +14,19 @@ ExportDialogModal::ExportDialogModal(const std::string& trackTitle,
 {
     setAlwaysOnTop(true);
 
-    std::string ext = (format_ == audio::AudioExportFormat::Mp3_320Kbps) ? ".mp3" : ".wav";
-    std::string formatLabel = (format_ == audio::AudioExportFormat::Mp3_320Kbps) ? "320 kbps MP3" : "24-bit WAV";
-
-    // 1. Headers
-    titleLabel_.setText("Export Reggae Master (" + juce::String(formatLabel) + ")", juce::dontSendNotification);
+    // 1. Header & Format Specs
+    titleLabel_.setText("Mastering & Export", juce::dontSendNotification);
     titleLabel_.setFont(juce::FontOptions(20.0f, juce::Font::bold));
     titleLabel_.setColour(juce::Label::textColourId, ReggaeWaveTheme::accentGold);
     addAndMakeVisible(titleLabel_);
 
-    descriptionLabel_.setText("Processed with authentic One-Drop / Steppers riddims, sub-bass, and -14.0 LUFS mastering.", juce::dontSendNotification);
-    descriptionLabel_.setFont(juce::FontOptions(13.0f));
+    std::string ext = (format_ == audio::AudioExportFormat::Mp3_320Kbps) ? ".mp3" : ".wav";
+    std::string specText = (format_ == audio::AudioExportFormat::Mp3_320Kbps)
+        ? "Format: MP3 • 320 kbps CBR • 44.1 kHz • -14.0 LUFS Integrated • -1.0 dBTP Ceiling"
+        : "Format: WAV • 24-bit PCM • 44.1 kHz Stereo • -14.0 LUFS Integrated • -1.0 dBTP Ceiling";
+
+    descriptionLabel_.setText(specText, juce::dontSendNotification);
+    descriptionLabel_.setFont(juce::FontOptions(12.0f));
     descriptionLabel_.setColour(juce::Label::textColourId, ReggaeWaveTheme::textSecondary);
     addAndMakeVisible(descriptionLabel_);
 
@@ -102,98 +104,104 @@ void ExportDialogModal::handleSaveClicked() {
     isExporting_ = true;
     pathHeaderLabel_.setText("Exporting Progress:", juce::dontSendNotification);
 
-    // Hide path editor & browse button, show progress bar
+    // Hide path editor & browse button, immediately show progress bar at 0%
     pathEditor_.setVisible(false);
     browseButton_.setVisible(false);
     progressBar_.setVisible(true);
     progressBar_.reset();
-    progressBar_.setProgress(0.15f, "Rendering Audio Stems...");
+    progressBar_.setProgress(0.0f, "Initializing Mastering Engine (0%)...");
 
     cancelButton_.setEnabled(false);
     actionButton_.setEnabled(false);
     actionButton_.setButtonText("Exporting...");
 
-    // Execute export asynchronously so UI refreshes immediately on single click
-    juce::MessageManager::callAsync([this, destFile]() {
-        if (onPerformExport_) {
-            onPerformExport_(destFile, format_, this);
-        }
-    });
+    repaint();
+
+    // Trigger export in background
+    if (onPerformExport_) {
+        onPerformExport_(destFile, format_, this);
+    }
 }
 
 void ExportDialogModal::updateProgress(float progress0To1, const std::string& stageText) {
-    progressBar_.setProgress(progress0To1, stageText);
+    juce::MessageManager::callAsync([this, progress0To1, stageText]() {
+        progressBar_.setProgress(progress0To1, stageText);
+        repaint();
+    });
 }
 
 void ExportDialogModal::setExportCompleted(const std::string& savedFilename) {
-    isDone_ = true;
-    isExporting_ = false;
+    juce::MessageManager::callAsync([this, savedFilename]() {
+        isDone_ = true;
+        isExporting_ = false;
 
-    progressBar_.setProgress(1.0f, "Saved: " + savedFilename);
+        progressBar_.setProgress(1.0f, "Saved: " + savedFilename);
 
-    pathHeaderLabel_.setText("Status:", juce::dontSendNotification);
-    cancelButton_.setVisible(false);
+        pathHeaderLabel_.setText("Status:", juce::dontSendNotification);
+        cancelButton_.setVisible(false);
 
-    actionButton_.setEnabled(true);
-    actionButton_.setButtonText("Done");
-    actionButton_.setColour(juce::TextButton::buttonColourId, ReggaeWaveTheme::accentGreen);
-    actionButton_.setColour(juce::TextButton::textColourOffId, ReggaeWaveTheme::bgDark);
+        actionButton_.setEnabled(true);
+        actionButton_.setButtonText("Done");
+        actionButton_.setColour(juce::TextButton::buttonColourId, ReggaeWaveTheme::accentGreen);
+        actionButton_.setColour(juce::TextButton::textColourOffId, ReggaeWaveTheme::bgDark);
+        repaint();
+    });
 }
 
 void ExportDialogModal::setExportError(const std::string& errorMessage) {
-    isExporting_ = false;
-    progressBar_.setProgress(1.0f, "Error: " + errorMessage);
+    juce::MessageManager::callAsync([this, errorMessage]() {
+        isExporting_ = false;
+        progressBar_.setProgress(1.0f, "Error: " + errorMessage);
 
-    cancelButton_.setEnabled(true);
-    actionButton_.setEnabled(true);
-    actionButton_.setButtonText("Retry");
+        cancelButton_.setEnabled(true);
+        actionButton_.setEnabled(true);
+        actionButton_.setButtonText("Retry");
+        repaint();
+    });
 }
 
 void ExportDialogModal::paint(juce::Graphics& g) {
-    // Backdrop shadow overlay
-    g.fillAll(juce::Colours::black.withAlpha(0.72f));
+    // Dimmed background
+    g.fillAll(juce::Colours::black.withAlpha(0.75f));
 
-    auto cardArea = getLocalBounds().withSizeKeepingCentre(580, 270).toFloat();
-
-    // Modal Card
+    // Centered modal card
+    auto cardArea = getLocalBounds().withSizeKeepingCentre(620, 270).toFloat();
     g.setColour(ReggaeWaveTheme::bgSurface);
-    g.fillRoundedRectangle(cardArea, 14.0f);
+    g.fillRoundedRectangle(cardArea, 12.0f);
 
     g.setColour(ReggaeWaveTheme::bgElevated);
-    g.drawRoundedRectangle(cardArea, 14.0f, 1.5f);
+    g.drawRoundedRectangle(cardArea, 12.0f, 1.5f);
 }
 
 void ExportDialogModal::resized() {
-    auto cardArea = getLocalBounds().withSizeKeepingCentre(580, 270).reduced(24);
+    auto cardArea = getLocalBounds().withSizeKeepingCentre(620, 270).reduced(24);
 
-    titleLabel_.setBounds(cardArea.removeFromTop(32));
-    descriptionLabel_.setBounds(cardArea.removeFromTop(24));
-    cardArea.removeFromTop(16);
+    // 1. Top Title & Specs
+    titleLabel_.setBounds(cardArea.removeFromTop(28));
+    descriptionLabel_.setBounds(cardArea.removeFromTop(20));
+    cardArea.removeFromTop(12);
 
+    // 2. Action Buttons at bottom
+    auto btnRow = cardArea.removeFromBottom(38);
+    actionButton_.setBounds(btnRow.removeFromRight(120));
+    btnRow.removeFromRight(10);
+    cancelButton_.setBounds(btnRow.removeFromRight(100));
+
+    cardArea.removeFromBottom(14);
+
+    // 3. Middle Path / Progress Bar Area
     pathHeaderLabel_.setBounds(cardArea.removeFromTop(20));
     cardArea.removeFromTop(6);
 
-    // Path row / Overlapping Progress Bar bounds
-    auto pathRow = cardArea.removeFromTop(36);
-    
-    // Position path editor and browse button
-    auto browseBounds = pathRow.removeFromRight(95);
-    pathRow.removeFromRight(8);
-    pathEditor_.setBounds(pathRow);
-    browseButton_.setBounds(browseBounds);
+    auto pathRow = cardArea.removeFromTop(38);
 
-    // Progress bar takes the entire combined path row width
-    auto progressBounds = pathRow;
-    progressBounds.setRight(browseBounds.getRight());
-    progressBar_.setBounds(progressBounds);
+    // Path editor + browse button initially take pathRow
+    pathEditor_.setBounds(pathRow.removeFromLeft(pathRow.getWidth() - 90));
+    pathRow.removeFromLeft(8);
+    browseButton_.setBounds(pathRow);
 
-    cardArea.removeFromTop(22);
-
-    // Bottom Action Buttons
-    auto buttonRow = cardArea.removeFromTop(38);
-    actionButton_.setBounds(buttonRow.removeFromRight(120));
-    buttonRow.removeFromRight(12);
-    cancelButton_.setBounds(buttonRow.removeFromRight(100));
+    // Progress bar overlaps the exact path editor bounds when visible!
+    progressBar_.setBounds(pathEditor_.getBounds().withRight(browseButton_.getRight()));
 }
 
 } // namespace reggaewave::ui

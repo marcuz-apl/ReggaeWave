@@ -1,5 +1,6 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "MainWindow.h"
+#include <csignal>
 
 namespace reggaewave::desktop {
 
@@ -8,10 +9,13 @@ public:
     ReggaeWaveApplication() = default;
 
     const juce::String getApplicationName() override { return "ReggaeWave"; }
-    const juce::String getApplicationVersion() override { return "0.1.0"; }
+    const juce::String getApplicationVersion() override { return "1.2.1"; }
     bool moreThanOneInstanceAllowed() override { return false; }
 
     void initialise(const juce::String& /*commandLine*/) override {
+        // Prevent SIGPIPE (signal 13 / exit code 141) on audio streaming pipes
+        std::signal(SIGPIPE, SIG_IGN);
+
         mainWindow_ = std::make_unique<MainWindow>(getApplicationName());
     }
 
