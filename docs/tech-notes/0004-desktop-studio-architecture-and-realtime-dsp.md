@@ -77,53 +77,30 @@ ReggaeWave is architected using **standard C++20 + JUCE 8 + CMake**, making the 
 
 ---
 
-### 🍏 A. Building & Testing on macOS
+### 🪟 A. Building & Testing on Windows 11 (Simple 2-Command Flow)
 
 #### Prerequisites:
-- **Xcode** or **Apple Command Line Tools** (`xcode-select --install`)
-- **CMake** (`brew install cmake`)
+1. **Visual Studio 2022** (Community or Professional with *"Desktop development with C++"* workload).
+2. **Git & CMake** (installed via winget or official installers):
+   ```powershell
+   winget install Kitware.CMake Git.Git
+   ```
 
-#### Terminal Commands:
-```bash
-# 1. Clone or pull the repository
-git clone https://github.com/marcuz-apl/ReggaeWave.git
-cd ReggaeWave
-
-# 2. Configure with CMake in Release mode
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-
-# 3. Compile the Desktop App & Test Suite
-cmake --build build --target ReggaeWave -j$(sysctl -n hw.ncpu)
-ctest --test-dir build --output-on-failure
-
-# 4. Launch the Native macOS Bundle:
-open ./build/apps/desktop/ReggaeWave_artefacts/Release/ReggaeWave.app
-```
-
-> **macOS Audio Advantage:** JUCE uses Apple's native **CoreAudio** subsystem. Multi-channel audio, live DSP crossfading, and low-latency buffer management work automatically with zero configuration.
-
----
-
-### 🪟 B. Building & Testing on Windows
-
-#### Prerequisites:
-- **Visual Studio 2022** (Community or Professional with *"Desktop development with C++"*)
-- **CMake** (Bundled with Visual Studio or via `winget install Kitware.CMake`)
-
-#### Terminal Commands (PowerShell / Command Prompt / VS Developer Prompt):
+#### 2-Step Build Instructions (PowerShell / Command Prompt):
 ```powershell
-# 1. Clone repository
-git clone https://github.com/marcuz-apl/ReggaeWave.git
-cd ReggaeWave
-
-# 2. Generate Visual Studio 2022 x64 Solution
+# Step 1: Configure CMake and generate the Visual Studio 2022 64-bit solution
 cmake -B build -G "Visual Studio 17 2022" -A x64
 
-# 3. Compile in Release Mode
-cmake --build build --config Release --target ReggaeWave -j %NUMBER_OF_PROCESSORS%
+# Step 2: Compile the desktop application & tests in Release mode
+cmake --build build --config Release --parallel
+```
+
+#### Run & Test:
+```powershell
+# Run the verification test suite (55 tests)
 ctest --test-dir build -C Release --output-on-failure
 
-# 4. Run the Windows Executable:
+# Launch the Windows application executable:
 .\build\apps\desktop\ReggaeWave_artefacts\Release\ReggaeWave.exe
 ```
 
@@ -131,18 +108,60 @@ ctest --test-dir build -C Release --output-on-failure
 
 ---
 
+### 🍏 B. Building & Testing on macOS
+
+#### Prerequisites:
+- **Xcode** or **Apple Command Line Tools** (`xcode-select --install`)
+- **CMake** (`brew install cmake`)
+
+#### 2-Step Build Instructions (Terminal):
+```bash
+# Step 1: Configure CMake for Release
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+# Step 2: Compile the desktop application & tests in Release mode
+cmake --build build --config Release --parallel
+```
+
+#### Run & Test:
+```bash
+# Run the verification test suite (55 tests)
+ctest --test-dir build -C Release --output-on-failure
+
+# Launch the Native macOS App Bundle:
+open ./build/apps/desktop/ReggaeWave_artefacts/Release/ReggaeWave.app
+```
+
+> **macOS Audio Advantage:** JUCE uses Apple's native **CoreAudio** subsystem. Multi-channel audio, live DSP crossfading, and low-latency buffer management work automatically with zero configuration.
+
+---
+
 ### 🐧 C. Building & Testing on Linux / WSL2
 
 #### Prerequisites:
-- **GCC 13+** or **Clang 16+**
-- `libasound2-dev`, `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `libcurl4-openssl-dev`, `ffmpeg`
-
-#### Terminal Commands:
 ```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --target ReggaeWave -j$(nproc)
-ctest --test-dir build --output-on-failure
+sudo apt update && sudo apt install -y \
+  build-essential cmake ninja-build pkg-config \
+  libasound2-dev libgtk-3-dev libcurl4-openssl-dev \
+  libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev \
+  libgl1-mesa-dev libfreetype6-dev
+```
 
+#### 2-Step Build Instructions (Terminal):
+```bash
+# Step 1: Configure CMake with Ninja for Release
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+# Step 2: Compile the desktop application & tests in Release mode
+cmake --build build --config Release --parallel
+```
+
+#### Run & Test:
+```bash
+# Run the verification test suite (55 tests)
+ctest --test-dir build -C Release --output-on-failure
+
+# Launch the Linux Desktop executable:
 ./build/apps/desktop/ReggaeWave_artefacts/ReggaeWave
 ```
 

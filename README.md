@@ -54,39 +54,45 @@ ReggaeWave/
 
 ---
 
-## Getting Started
+### Cross-Platform Build Instructions
 
-### Prerequisites
+#### 🪟 Windows 11 (PowerShell / Command Prompt)
+Prerequisites: Visual Studio 2022 (*Desktop development with C++*) + `winget install Kitware.CMake Git.Git`
+```powershell
+# 1. Configure Visual Studio 2022 solution
+cmake -B build -G "Visual Studio 17 2022" -A x64
 
-- **C++ Compiler**: GCC 13+, Clang 16+, or MSVC 2022+ supporting **C++20**.
-- **CMake**: Version 3.22 or higher.
-- **Audio/Graphics Dependencies** (Linux only):
-  ```bash
-  sudo apt install -y libasound2-dev libx11-dev libxinerama-dev libxext-dev \
-                      libfreetype6-dev libcurl4-openssl-dev libgl1-mesa-dev
-  ```
+# 2. Build Release executable
+cmake --build build --config Release --parallel
 
-### Building & Running Unit Tests
-
-```bash
-# 1. Configure CMake with tests enabled
-cmake -B build -DCMAKE_BUILD_TYPE=Debug -DREGGAEWAVE_BUILD_DESKTOP=OFF
-
-# 2. Build the test suite
-cmake --build build --target reggaewave_tests -j$(nproc)
-
-# 3. Run all test cases
-./build/tests/reggaewave_tests
+# (Optional) Run tests
+ctest --test-dir build -C Release --output-on-failure
 ```
 
-### Building the Desktop Application
-
+#### 🍏 macOS (Terminal)
+Prerequisites: Xcode CLI Tools (`xcode-select --install`) + `brew install cmake`
 ```bash
-# Configure with desktop application enabled (fetches JUCE 8 via CMake FetchContent)
-cmake -B build -DCMAKE_BUILD_TYPE=Release -DREGGAEWAVE_BUILD_DESKTOP=ON
+# 1. Configure Release build
+cmake -B build -DCMAKE_BUILD_TYPE=Release
 
-# Build the desktop executable
-cmake --build build --target ReggaeWave -j$(nproc)
+# 2. Build Release app bundle
+cmake --build build --config Release --parallel
+
+# (Optional) Run tests
+ctest --test-dir build -C Release --output-on-failure
+```
+
+#### 🐧 Linux (Terminal)
+Prerequisites: `sudo apt update && sudo apt install -y build-essential cmake ninja-build pkg-config libasound2-dev libgtk-3-dev libcurl4-openssl-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libgl1-mesa-dev libfreetype6-dev`
+```bash
+# 1. Configure Ninja Release build
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+# 2. Build Release binary
+cmake --build build --config Release --parallel
+
+# (Optional) Run tests
+ctest --test-dir build -C Release --output-on-failure
 ```
 
 ---

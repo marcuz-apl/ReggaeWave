@@ -5,6 +5,14 @@
 #include <chrono>
 #include <csignal>
 
+#if defined(_WIN32)
+#define rw_popen _popen
+#define rw_pclose _pclose
+#else
+#define rw_popen popen
+#define rw_pclose pclose
+#endif
+
 namespace reggaewave::desktop {
 
 MainComponent::MainComponent()
@@ -31,8 +39,10 @@ MainComponent::MainComponent()
     )
     , exportCard_([this](audio::AudioExportFormat fmt, bool subs) { handleExportRequested(fmt, subs); })
 {
+#if defined(SIGPIPE)
     // Ignore SIGPIPE to prevent exit code 141
     std::signal(SIGPIPE, SIG_IGN);
+#endif
 
     juce::LookAndFeel::setDefaultLookAndFeel(&theme_);
 
@@ -104,7 +114,12 @@ void MainComponent::startLiveAudioStreaming() {
     isStreaming_ = true;
 
     liveAudioThread_ = std::thread([this]() {
-        FILE* pipe = popen("ffplay -nodisp -autoexit -f f32le -ar 44100 -ch_layout stereo -i - 2>/dev/null", "w");
+#if defined(_WIN32)
+        const char* streamCmd = "ffplay -nodisp -autoexit -f f32le -ar 44100 -ch_layout stereo -i - >nul 2>&1";
+#else
+        const char* streamCmd = "ffplay -nodisp -autoexit -f f32le -ar 44100 -ch_layout stereo -i - 2>/dev/null";
+#endif
+        FILE* pipe = rw_popen(streamCmd, "w");
         if (!pipe) return;
 
         const int blockSize = 2048;
@@ -146,13 +161,17 @@ void MainComponent::startLiveAudioStreaming() {
             }
         }
 
-        pclose(pipe);
+        rw_pclose(pipe);
     });
 }
 
 void MainComponent::stopLiveAudioStreaming() {
     isStreaming_ = false;
+#if defined(_WIN32)
+    std::system("taskkill /F /IM ffplay.exe >nul 2>&1");
+#else
     std::system("killall -9 ffplay 2>/dev/null");
+#endif
     if (liveAudioThread_.joinable()) {
         liveAudioThread_.join();
     }

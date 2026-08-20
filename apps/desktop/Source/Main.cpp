@@ -13,8 +13,10 @@ public:
     bool moreThanOneInstanceAllowed() override { return false; }
 
     void initialise(const juce::String& /*commandLine*/) override {
+#if defined(SIGPIPE)
         // Prevent SIGPIPE (signal 13 / exit code 141) on audio streaming pipes
         std::signal(SIGPIPE, SIG_IGN);
+#endif
 
         mainWindow_ = std::make_unique<MainWindow>(getApplicationName());
     }

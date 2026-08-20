@@ -11,6 +11,19 @@
 #include <memory>
 #include <cstdio>
 
+#if __has_include(<juce_audio_formats/juce_audio_formats.h>)
+#include <juce_audio_formats/juce_audio_formats.h>
+#define HAS_JUCE_AUDIO_FORMATS 1
+#endif
+
+#if defined(_WIN32)
+#define rw_popen _popen
+#define rw_pclose _pclose
+#else
+#define rw_popen popen
+#define rw_pclose pclose
+#endif
+
 namespace reggaewave::audio {
 
 struct DecodedAudio {
@@ -22,37 +35,83 @@ struct DecodedAudio {
 };
 
 /**
- * @brief Pure C++ audio file decoder with native multi-format (M4A/MP3/FLAC/WAV) support.
+ * @brief Pure C++ audio file decoder with native multi-format (M4A/MP3/FLAC/WAV/AAC) support.
  */
 class AudioDecoder {
 public:
     /**
-     * @brief Decodes any audio file (WAV directly, M4A/MP3/FLAC via ffmpeg).
+     * @brief Decodes any audio file using native OS / JUCE decoders (WMF on Windows, CoreAudio on macOS)
+     * with WAV and ffmpeg fallback.
      */
     static DecodedAudio decodeAnyAudioFile(const std::string& filePath) {
-        // 1. Try direct WAV decode
+#if HAS_JUCE_AUDIO_FORMATS
+        // 1. Try native JUCE OS Decoders (Windows Media Foundation / CoreAudio / Built-in MP3/FLAC/OGG/WAV)
+        try {
+            juce::AudioFormatManager formatMgr;
+            formatMgr.registerBasicFormats();
+
+            juce::File audioFile(filePath);
+            if (audioFile.existsAsFile()) {
+                std::unique_ptr<juce::AudioFormatReader> reader(formatMgr.createReaderFor(audioFile));
+                if (reader != nullptr && reader->lengthInSamples > 0) {
+                    DecodedAudio decoded;
+                    decoded.sampleRate = reader->sampleRate;
+                    decoded.numChannels = std::max(1, static_cast<int>(reader->numChannels));
+                    decoded.numSamples = static_cast<size_t>(reader->lengthInSamples);
+                    decoded.durationSeconds = (decoded.sampleRate > 0) ? (static_cast<double>(decoded.numSamples) / decoded.sampleRate) : 0.0;
+
+                    int channelsToRead = std::min(decoded.numChannels, 2);
+                    decoded.channels.assign(2, std::vector<float>(decoded.numSamples, 0.0f));
+
+                    juce::AudioBuffer<float> tempBuf(channelsToRead, static_cast<int>(decoded.numSamples));
+                    reader->read(&tempBuf, 0, static_cast<int>(decoded.numSamples), 0, true, true);
+
+                    for (int ch = 0; ch < channelsToRead; ++ch) {
+                        const float* src = tempBuf.getReadPointer(ch);
+                        std::copy(src, src + decoded.numSamples, decoded.channels[ch].data());
+                    }
+                    if (channelsToRead == 1) {
+                        // Duplicate mono track to stereo
+                        decoded.channels[1] = decoded.channels[0];
+                    }
+                    if (decoded.numSamples > 0) {
+                        return decoded;
+                    }
+                }
+            }
+        } catch (...) {
+            // Fall through to direct WAV decoder and ffmpeg
+        }
+#endif
+
+        // 2. Try direct built-in PCM WAV decode
         try {
             return decodeWavFile(filePath);
         } catch (...) {
             // Fall back to ffmpeg pipe transcoding
         }
 
-        // 2. Transcode via ffmpeg to standard 44.1 kHz 16-bit stereo WAV in memory
-        std::string cmd = "ffmpeg -v quiet -i \"" + filePath + "\" -f wav -ac 2 -ar 44100 -c:a pcm_s16le -";
-        std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
-        if (!pipe) {
-            throw std::runtime_error("Failed to invoke audio decoder for: " + filePath);
+        // 3. Transcode via ffmpeg to standard 44.1 kHz 16-bit stereo WAV in memory
+#if defined(_WIN32)
+        std::string cmd = "ffmpeg -v quiet -i \"" + filePath + "\" -f wav -ac 2 -ar 44100 -c:a pcm_s16le - 2>nul";
+#else
+        std::string cmd = "ffmpeg -v quiet -i \"" + filePath + "\" -f wav -ac 2 -ar 44100 -c:a pcm_s16le - 2>/dev/null";
+#endif
+        FILE* rawPipe = rw_popen(cmd.c_str(), "r");
+        if (!rawPipe) {
+            throw std::runtime_error("Could not decode audio file: " + filePath + ". (Please ensure the file is a valid audio track or export to WAV)");
         }
 
         std::vector<uint8_t> wavBuffer;
         std::array<uint8_t, 8192> chunk;
         size_t bytesRead = 0;
-        while ((bytesRead = fread(chunk.data(), 1, chunk.size(), pipe.get())) > 0) {
+        while ((bytesRead = fread(chunk.data(), 1, chunk.size(), rawPipe)) > 0) {
             wavBuffer.insert(wavBuffer.end(), chunk.begin(), chunk.begin() + bytesRead);
         }
+        rw_pclose(rawPipe);
 
         if (wavBuffer.size() < 44) {
-            throw std::runtime_error("Could not decode audio file: " + filePath);
+            throw std::runtime_error("Could not decode audio file: " + filePath + ". (Format not recognized by system decoders)");
         }
 
         return decodeWavBytes(wavBuffer.data(), wavBuffer.size());

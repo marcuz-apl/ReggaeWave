@@ -57,6 +57,11 @@ target_include_directories(ReggaeWave PRIVATE
 
 target_compile_features(ReggaeWave PRIVATE cxx_std_20)
 
+target_compile_definitions(ReggaeWave PRIVATE
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+)
+
 target_link_libraries(ReggaeWave PRIVATE
     reggaewave_contracts
     reggaewave_audio_engine
@@ -76,7 +81,7 @@ target_link_libraries(ReggaeWave PRIVATE
 
 if(UNIX AND NOT APPLE)
     find_package(PkgConfig REQUIRED)
-    pkg_check_modules(GUI_DEPS REQUIRED gtk+-x11-3.0 webkit2gtk-4.1 libcurl alsa)
+    pkg_check_modules(GUI_DEPS REQUIRED gtk+-3.0 alsa)
     target_include_directories(ReggaeWave PRIVATE ${GUI_DEPS_INCLUDE_DIRS})
-    target_link_libraries(ReggaeWave PRIVATE ${GUI_DEPS_LIBRARIES} curl asound dl pthread)
+    target_link_libraries(ReggaeWave PRIVATE ${GUI_DEPS_LIBRARIES} asound dl pthread)
 endif()
