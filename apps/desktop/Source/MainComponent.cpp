@@ -39,6 +39,9 @@ MainComponent::MainComponent()
     statusBadgeLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGreen);
     addAndMakeVisible(statusBadgeLabel_);
 
+    inlineProgressBar_.setVisible(false);
+    addAndMakeVisible(inlineProgressBar_);
+
     rightsStatusButton_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::bgSurface);
     rightsStatusButton_.setColour(juce::TextButton::textColourOffId, ui::ReggaeWaveTheme::textSecondary);
     rightsStatusButton_.onClick = [this]() {
@@ -59,11 +62,23 @@ MainComponent::MainComponent()
 
     exportMp3Button_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::accentGreen);
     exportMp3Button_.setColour(juce::TextButton::textColourOffId, ui::ReggaeWaveTheme::bgDark);
-    exportMp3Button_.onClick = [this]() { handleExportRequested(audio::AudioExportFormat::Mp3_320Kbps); };
+    exportMp3Button_.onClick = [this]() {
+        if (isExportDoneState_) {
+            resetExportButtons();
+        } else {
+            handleExportRequested(audio::AudioExportFormat::Mp3_320Kbps);
+        }
+    };
     addAndMakeVisible(exportMp3Button_);
 
     exportWavButton_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::bgElevated);
-    exportWavButton_.onClick = [this]() { handleExportRequested(audio::AudioExportFormat::Wav24Bit); };
+    exportWavButton_.onClick = [this]() {
+        if (isExportDoneState_) {
+            resetExportButtons();
+        } else {
+            handleExportRequested(audio::AudioExportFormat::Wav24Bit);
+        }
+    };
     addAndMakeVisible(exportWavButton_);
 
     // 3. Main Views
@@ -278,6 +293,7 @@ void MainComponent::handleExportRequested(audio::AudioExportFormat format) {
         return;
     }
 
+    lastExportFormat_ = format;
     std::string ext = (format == audio::AudioExportFormat::Mp3_320Kbps) ? ".mp3" : ".wav";
     std::string filter = (format == audio::AudioExportFormat::Mp3_320Kbps) ? "*.mp3" : "*.wav";
     std::string title = (format == audio::AudioExportFormat::Mp3_320Kbps) 
@@ -305,26 +321,20 @@ void MainComponent::handleExportRequested(audio::AudioExportFormat format) {
 
 void MainComponent::performExportToFile(const juce::File& destinationFile, audio::AudioExportFormat format) {
     std::string formatLabel = (format == audio::AudioExportFormat::Mp3_320Kbps) ? "MP3 (320k)" : "WAV (24-bit)";
-    statusBadgeLabel_.setText(juce::String("Mastering & Exporting ") + juce::String(formatLabel) + ": " + destinationFile.getFileName() + "...", juce::dontSendNotification);
-    statusBadgeLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGold);
 
-    // Launch Export Progress Modal
-    exportProgressModal_ = std::make_unique<ui::ExportProgressModal>(
-        currentTrackTitle_,
-        formatLabel,
-        [this]() {
-            if (exportProgressModal_) {
-                removeChildComponent(exportProgressModal_.get());
-                exportProgressModal_.reset();
-            }
-        }
-    );
-    exportProgressModal_->setBounds(getLocalBounds());
-    addAndMakeVisible(exportProgressModal_.get());
+    // Show inline progress bar in the header status area
+    statusBadgeLabel_.setVisible(false);
+    inlineProgressBar_.setVisible(true);
+    inlineProgressBar_.reset();
+    inlineProgressBar_.setProgress(0.20f, "Rendering Stems...");
+
+    if (format == audio::AudioExportFormat::Mp3_320Kbps) {
+        exportMp3Button_.setButtonText("Exporting...");
+    } else {
+        exportWavButton_.setButtonText("Exporting...");
+    }
 
     try {
-        exportProgressModal_->setProgress(0.20f, "Step 1/3: Rendering Audio Stems...");
-
         const size_t totalSamples = dualTransport_.getTotalLengthSamples();
         std::vector<float> leftCh(totalSamples, 0.0f);
         std::vector<float> rightCh(totalSamples, 0.0f);
@@ -341,12 +351,12 @@ void MainComponent::performExportToFile(const juce::File& destinationFile, audio
             tempDub.process(blockPtrs.data(), 2, samplesToProcess);
         }
 
-        exportProgressModal_->setProgress(0.60f, "Step 2/3: Applying -14.0 LUFS & -1.0 dBTP Limiter...");
+        inlineProgressBar_.setProgress(0.60f, "Mastering -14 LUFS...");
 
         // Master to -14.0 LUFS and -1.0 dBTP ceiling
         auto mastered = audio::AudioMasterer::master({leftCh, rightCh}, 44100.0);
 
-        exportProgressModal_->setProgress(0.85f, "Step 3/3: Encoding format container...");
+        inlineProgressBar_.setProgress(0.85f, "Encoding " + formatLabel + "...");
 
         // Encode based on format
         std::vector<uint8_t> outputBytes;
@@ -390,20 +400,42 @@ void MainComponent::performExportToFile(const juce::File& destinationFile, audio
             if (wavOut.is_open()) wavOut.write(reinterpret_cast<const char*>(wavBytes.data()), wavBytes.size());
         }
 
-        exportProgressModal_->setProgress(1.0f, "Master Exported Successfully! 🎉");
+        // Mark complete and transform button to "Done"
+        inlineProgressBar_.setProgress(1.0f, "Saved: " + destinationFile.getFileName().toStdString());
+        isExportDoneState_ = true;
 
-        statusBadgeLabel_.setText("Master Exported: " + destinationFile.getFileName() + " (" + formatLabel + ", " +
-                                  juce::String(mastered.integratedLufs, 1) + " LUFS, " +
-                                  juce::String(mastered.truePeakDb, 1) + " dBTP)", juce::dontSendNotification);
-        statusBadgeLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGreen);
-    } catch (const std::exception& ex) {
-        if (exportProgressModal_) {
-            removeChildComponent(exportProgressModal_.get());
-            exportProgressModal_.reset();
+        if (format == audio::AudioExportFormat::Mp3_320Kbps) {
+            exportMp3Button_.setButtonText("Done");
+            exportMp3Button_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::accentGreen);
+            exportMp3Button_.setColour(juce::TextButton::textColourOffId, ui::ReggaeWaveTheme::bgDark);
+        } else {
+            exportWavButton_.setButtonText("Done");
+            exportWavButton_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::accentGreen);
+            exportWavButton_.setColour(juce::TextButton::textColourOffId, ui::ReggaeWaveTheme::bgDark);
         }
+    } catch (const std::exception& ex) {
+        inlineProgressBar_.setVisible(false);
+        statusBadgeLabel_.setVisible(true);
+        resetExportButtons();
         statusBadgeLabel_.setText("Export Error: " + juce::String(ex.what()), juce::dontSendNotification);
         statusBadgeLabel_.setColour(juce::Label::textColourId, juce::Colours::red);
     }
+}
+
+void MainComponent::resetExportButtons() {
+    isExportDoneState_ = false;
+    inlineProgressBar_.setVisible(false);
+    statusBadgeLabel_.setVisible(true);
+    statusBadgeLabel_.setText("Master Saved in exports/", juce::dontSendNotification);
+    statusBadgeLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGreen);
+
+    exportMp3Button_.setButtonText("Export MP3 (320k)");
+    exportMp3Button_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::accentGreen);
+    exportMp3Button_.setColour(juce::TextButton::textColourOffId, ui::ReggaeWaveTheme::bgDark);
+
+    exportWavButton_.setButtonText("Export WAV (24-bit)");
+    exportWavButton_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::bgElevated);
+    exportWavButton_.setColour(juce::TextButton::textColourOffId, ui::ReggaeWaveTheme::textPrimary);
 }
 
 void MainComponent::paint(juce::Graphics& g) {
@@ -418,8 +450,13 @@ void MainComponent::resized() {
     appTitleLabel_.setBounds(headerArea.removeFromLeft(170));
     rightsStatusButton_.setBounds(headerArea.removeFromLeft(150).reduced(0, 6));
     headerArea.removeFromLeft(10);
-    statusBadgeLabel_.setBounds(headerArea.removeFromLeft(200));
-    exportMp3Button_.setBounds(headerArea.removeFromRight(150));
+
+    // Status area / Progress Bar overlap
+    auto statusBounds = headerArea.removeFromLeft(220);
+    statusBadgeLabel_.setBounds(statusBounds);
+    inlineProgressBar_.setBounds(statusBounds.reduced(0, 7));
+
+    exportMp3Button_.setBounds(headerArea.removeFromRight(140));
     headerArea.removeFromRight(8);
     exportWavButton_.setBounds(headerArea.removeFromRight(150));
     headerArea.removeFromRight(8);
@@ -443,9 +480,6 @@ void MainComponent::resized() {
 
     if (rightsModal_) {
         rightsModal_->setBounds(getLocalBounds());
-    }
-    if (exportProgressModal_) {
-        exportProgressModal_->setBounds(getLocalBounds());
     }
 }
 

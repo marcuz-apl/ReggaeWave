@@ -31,8 +31,8 @@ target_sources(ReggaeWave PRIVATE
     Source/UI/TuningPanel.cpp
     Source/UI/WaveformABView.h
     Source/UI/WaveformABView.cpp
-    Source/UI/ExportProgressModal.h
-    Source/UI/ExportProgressModal.cpp
+    Source/UI/InlineExportProgressBar.h
+    Source/UI/InlineExportProgressBar.cpp
     Source/UI/LyricEditorView.h
     Source/UI/LyricEditorView.cpp
 )
