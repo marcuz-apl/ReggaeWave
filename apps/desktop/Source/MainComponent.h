@@ -15,6 +15,7 @@
 #include "UI/TuningPanel.h"
 #include "UI/WaveformABView.h"
 #include "UI/RightsAttestationModal.h"
+#include "UI/ExportProgressModal.h"
 #include "UI/LyricEditorView.h"
 
 #include <memory>
@@ -73,6 +74,7 @@ private:
     ui::TuningPanel tuningPanel_;
     ui::LyricEditorView lyricEditor_;
     std::unique_ptr<ui::RightsAttestationModal> rightsModal_;
+    std::unique_ptr<ui::ExportProgressModal> exportProgressModal_;
     std::unique_ptr<juce::FileChooser> fileChooser_;
 
     bool isPlaying_ = false;

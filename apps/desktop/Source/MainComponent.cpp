@@ -112,6 +112,7 @@ void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& buffer
     if (dualTransport_.getPlayheadSample() >= dualTransport_.getTotalLengthSamples()) {
         isPlaying_ = false;
         playButton_.setButtonText("Play");
+        waveformView_.setIsPlaying(false);
     }
 }
 
@@ -124,6 +125,7 @@ void MainComponent::timerCallback() {
         double progress = static_cast<double>(dualTransport_.getPlayheadSample()) / 
                           static_cast<double>(dualTransport_.getTotalLengthSamples());
         waveformView_.setPlaybackProgress(progress);
+        waveformView_.setIsPlaying(true);
     }
 }
 
@@ -136,6 +138,7 @@ void MainComponent::togglePlayback() {
     }
     isPlaying_ = !isPlaying_;
     playButton_.setButtonText(isPlaying_ ? "Pause" : "Play");
+    waveformView_.setIsPlaying(isPlaying_);
 
     if (isPlaying_) {
         // In WSL2, seamlessly route playback via mpv if ALSA hardware is virtualized
@@ -304,9 +307,24 @@ void MainComponent::performExportToFile(const juce::File& destinationFile, audio
     std::string formatLabel = (format == audio::AudioExportFormat::Mp3_320Kbps) ? "MP3 (320k)" : "WAV (24-bit)";
     statusBadgeLabel_.setText(juce::String("Mastering & Exporting ") + juce::String(formatLabel) + ": " + destinationFile.getFileName() + "...", juce::dontSendNotification);
     statusBadgeLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGold);
-    repaint();
+
+    // Launch Export Progress Modal
+    exportProgressModal_ = std::make_unique<ui::ExportProgressModal>(
+        currentTrackTitle_,
+        formatLabel,
+        [this]() {
+            if (exportProgressModal_) {
+                removeChildComponent(exportProgressModal_.get());
+                exportProgressModal_.reset();
+            }
+        }
+    );
+    exportProgressModal_->setBounds(getLocalBounds());
+    addAndMakeVisible(exportProgressModal_.get());
 
     try {
+        exportProgressModal_->setProgress(0.20f, "Step 1/3: Rendering Audio Stems...");
+
         const size_t totalSamples = dualTransport_.getTotalLengthSamples();
         std::vector<float> leftCh(totalSamples, 0.0f);
         std::vector<float> rightCh(totalSamples, 0.0f);
@@ -323,8 +341,12 @@ void MainComponent::performExportToFile(const juce::File& destinationFile, audio
             tempDub.process(blockPtrs.data(), 2, samplesToProcess);
         }
 
+        exportProgressModal_->setProgress(0.60f, "Step 2/3: Applying -14.0 LUFS & -1.0 dBTP Limiter...");
+
         // Master to -14.0 LUFS and -1.0 dBTP ceiling
         auto mastered = audio::AudioMasterer::master({leftCh, rightCh}, 44100.0);
+
+        exportProgressModal_->setProgress(0.85f, "Step 3/3: Encoding format container...");
 
         // Encode based on format
         std::vector<uint8_t> outputBytes;
@@ -368,11 +390,17 @@ void MainComponent::performExportToFile(const juce::File& destinationFile, audio
             if (wavOut.is_open()) wavOut.write(reinterpret_cast<const char*>(wavBytes.data()), wavBytes.size());
         }
 
+        exportProgressModal_->setProgress(1.0f, "Master Exported Successfully! 🎉");
+
         statusBadgeLabel_.setText("Master Exported: " + destinationFile.getFileName() + " (" + formatLabel + ", " +
                                   juce::String(mastered.integratedLufs, 1) + " LUFS, " +
                                   juce::String(mastered.truePeakDb, 1) + " dBTP)", juce::dontSendNotification);
         statusBadgeLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGreen);
     } catch (const std::exception& ex) {
+        if (exportProgressModal_) {
+            removeChildComponent(exportProgressModal_.get());
+            exportProgressModal_.reset();
+        }
         statusBadgeLabel_.setText("Export Error: " + juce::String(ex.what()), juce::dontSendNotification);
         statusBadgeLabel_.setColour(juce::Label::textColourId, juce::Colours::red);
     }
@@ -415,6 +443,9 @@ void MainComponent::resized() {
 
     if (rightsModal_) {
         rightsModal_->setBounds(getLocalBounds());
+    }
+    if (exportProgressModal_) {
+        exportProgressModal_->setBounds(getLocalBounds());
     }
 }
 
