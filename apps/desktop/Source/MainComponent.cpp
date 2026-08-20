@@ -39,9 +39,6 @@ MainComponent::MainComponent()
     statusBadgeLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGreen);
     addAndMakeVisible(statusBadgeLabel_);
 
-    inlineProgressBar_.setVisible(false);
-    addAndMakeVisible(inlineProgressBar_);
-
     rightsStatusButton_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::bgSurface);
     rightsStatusButton_.setColour(juce::TextButton::textColourOffId, ui::ReggaeWaveTheme::textSecondary);
     rightsStatusButton_.onClick = [this]() {
@@ -62,23 +59,11 @@ MainComponent::MainComponent()
 
     exportMp3Button_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::accentGreen);
     exportMp3Button_.setColour(juce::TextButton::textColourOffId, ui::ReggaeWaveTheme::bgDark);
-    exportMp3Button_.onClick = [this]() {
-        if (isExportDoneState_) {
-            resetExportButtons();
-        } else {
-            handleExportRequested(audio::AudioExportFormat::Mp3_320Kbps);
-        }
-    };
+    exportMp3Button_.onClick = [this]() { handleExportRequested(audio::AudioExportFormat::Mp3_320Kbps); };
     addAndMakeVisible(exportMp3Button_);
 
     exportWavButton_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::bgElevated);
-    exportWavButton_.onClick = [this]() {
-        if (isExportDoneState_) {
-            resetExportButtons();
-        } else {
-            handleExportRequested(audio::AudioExportFormat::Wav24Bit);
-        }
-    };
+    exportWavButton_.onClick = [this]() { handleExportRequested(audio::AudioExportFormat::Wav24Bit); };
     addAndMakeVisible(exportWavButton_);
 
     // 3. Main Views
@@ -293,149 +278,82 @@ void MainComponent::handleExportRequested(audio::AudioExportFormat format) {
         return;
     }
 
-    lastExportFormat_ = format;
-    std::string ext = (format == audio::AudioExportFormat::Mp3_320Kbps) ? ".mp3" : ".wav";
-    std::string filter = (format == audio::AudioExportFormat::Mp3_320Kbps) ? "*.mp3" : "*.wav";
-    std::string title = (format == audio::AudioExportFormat::Mp3_320Kbps) 
-                        ? "Export Reggae MP3 (320 kbps)" 
-                        : "Export Reggae WAV (24-bit PCM)";
+    exportDialogModal_ = std::make_unique<ui::ExportDialogModal>(
+        currentTrackTitle_,
+        format,
+        [this](const juce::File& destFile, audio::AudioExportFormat fmt, ui::ExportDialogModal* modal) {
+            try {
+                modal->updateProgress(0.2f, "Rendering Audio Stems...");
 
-    auto defaultExportFile = juce::File::getCurrentWorkingDirectory()
-                                .getChildFile("exports")
-                                .getChildFile(juce::String(currentTrackTitle_) + "_reggae_master" + ext);
+                const size_t totalSamples = dualTransport_.getTotalLengthSamples();
+                std::vector<float> leftCh(totalSamples, 0.0f);
+                std::vector<float> rightCh(totalSamples, 0.0f);
 
-    fileChooser_ = std::make_unique<juce::FileChooser>(
-        title,
-        defaultExportFile,
-        filter
-    );
+                audio::DualTransportSource tempTransport = dualTransport_;
+                audio::DubEffectsProcessor tempDub = dubProcessor_;
+                tempTransport.setPlayheadSample(0);
 
-    auto flags = juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting;
-    fileChooser_->launchAsync(flags, [this, format](const juce::FileChooser& fc) {
-        auto dest = fc.getResult();
-        if (dest.getFullPathName().isNotEmpty()) {
-            performExportToFile(dest, format);
-        }
-    });
-}
+                const int blockSize = 1024;
+                for (size_t pos = 0; pos < totalSamples; pos += blockSize) {
+                    int samplesToProcess = static_cast<int>(std::min(size_t{blockSize}, totalSamples - pos));
+                    std::vector<float*> blockPtrs = {leftCh.data() + pos, rightCh.data() + pos};
+                    tempTransport.renderNextBlock(blockPtrs.data(), 2, samplesToProcess);
+                    tempDub.process(blockPtrs.data(), 2, samplesToProcess);
+                }
 
-void MainComponent::performExportToFile(const juce::File& destinationFile, audio::AudioExportFormat format) {
-    std::string formatLabel = (format == audio::AudioExportFormat::Mp3_320Kbps) ? "MP3 (320k)" : "WAV (24-bit)";
+                modal->updateProgress(0.6f, "Mastering -14.0 LUFS & -1.0 dBTP...");
 
-    // Show inline progress bar in the header status area
-    statusBadgeLabel_.setVisible(false);
-    inlineProgressBar_.setVisible(true);
-    inlineProgressBar_.reset();
-    inlineProgressBar_.setProgress(0.20f, "Rendering Stems...");
+                // Master to -14.0 LUFS and -1.0 dBTP ceiling
+                auto mastered = audio::AudioMasterer::master({leftCh, rightCh}, 44100.0);
 
-    if (format == audio::AudioExportFormat::Mp3_320Kbps) {
-        exportMp3Button_.setButtonText("Exporting...");
-    } else {
-        exportWavButton_.setButtonText("Exporting...");
-    }
+                modal->updateProgress(0.85f, "Encoding format container...");
 
-    try {
-        const size_t totalSamples = dualTransport_.getTotalLengthSamples();
-        std::vector<float> leftCh(totalSamples, 0.0f);
-        std::vector<float> rightCh(totalSamples, 0.0f);
+                // Encode based on format
+                std::vector<uint8_t> outputBytes;
+                if (fmt == audio::AudioExportFormat::Mp3_320Kbps) {
+                    outputBytes = audio::AudioExporter::encodeMp3(mastered.masteredAudio, 44100.0);
+                } else {
+                    outputBytes = audio::AudioExporter::encodeWav24Bit(mastered.masteredAudio, 44100.0);
+                }
 
-        audio::DualTransportSource tempTransport = dualTransport_;
-        audio::DubEffectsProcessor tempDub = dubProcessor_;
-        tempTransport.setPlayheadSample(0);
+                // Ensure parent directory exists
+                destFile.getParentDirectory().createDirectory();
 
-        const int blockSize = 1024;
-        for (size_t pos = 0; pos < totalSamples; pos += blockSize) {
-            int samplesToProcess = static_cast<int>(std::min(size_t{blockSize}, totalSamples - pos));
-            std::vector<float*> blockPtrs = {leftCh.data() + pos, rightCh.data() + pos};
-            tempTransport.renderNextBlock(blockPtrs.data(), 2, samplesToProcess);
-            tempDub.process(blockPtrs.data(), 2, samplesToProcess);
-        }
+                std::ofstream out(destFile.getFullPathName().toStdString(), std::ios::binary);
+                if (!out.is_open()) {
+                    throw std::runtime_error("Could not open destination file for writing");
+                }
+                out.write(reinterpret_cast<const char*>(outputBytes.data()), outputBytes.size());
+                out.close();
 
-        inlineProgressBar_.setProgress(0.60f, "Mastering -14 LUFS...");
+                // Also save copy into ./exports/ folder
+                auto exportsDir = juce::File::getCurrentWorkingDirectory().getChildFile("exports");
+                exportsDir.createDirectory();
+                auto workspaceCopy = exportsDir.getChildFile(destFile.getFileName());
+                if (workspaceCopy.getFullPathName() != destFile.getFullPathName()) {
+                    std::ofstream copyOut(workspaceCopy.getFullPathName().toStdString(), std::ios::binary);
+                    if (copyOut.is_open()) {
+                        copyOut.write(reinterpret_cast<const char*>(outputBytes.data()), outputBytes.size());
+                    }
+                }
 
-        // Master to -14.0 LUFS and -1.0 dBTP ceiling
-        auto mastered = audio::AudioMasterer::master({leftCh, rightCh}, 44100.0);
-
-        inlineProgressBar_.setProgress(0.85f, "Encoding " + formatLabel + "...");
-
-        // Encode based on format
-        std::vector<uint8_t> outputBytes;
-        if (format == audio::AudioExportFormat::Mp3_320Kbps) {
-            outputBytes = audio::AudioExporter::encodeMp3(mastered.masteredAudio, 44100.0);
-        } else {
-            outputBytes = audio::AudioExporter::encodeWav24Bit(mastered.masteredAudio, 44100.0);
-        }
-
-        // Ensure parent directory exists
-        destinationFile.getParentDirectory().createDirectory();
-
-        std::ofstream out(destinationFile.getFullPathName().toStdString(), std::ios::binary);
-        if (!out.is_open()) {
-            throw std::runtime_error("Could not open destination file for writing");
-        }
-        out.write(reinterpret_cast<const char*>(outputBytes.data()), outputBytes.size());
-        out.close();
-
-        // Also save copy into ./exports/ folder
-        auto exportsDir = juce::File::getCurrentWorkingDirectory().getChildFile("exports");
-        exportsDir.createDirectory();
-        auto workspaceCopy = exportsDir.getChildFile(destinationFile.getFileName());
-        if (workspaceCopy.getFullPathName() != destinationFile.getFullPathName()) {
-            std::ofstream copyOut(workspaceCopy.getFullPathName().toStdString(), std::ios::binary);
-            if (copyOut.is_open()) {
-                copyOut.write(reinterpret_cast<const char*>(outputBytes.data()), outputBytes.size());
+                modal->setExportCompleted(destFile.getFileName().toStdString());
+                statusBadgeLabel_.setText("Master Saved: " + destFile.getFileName(), juce::dontSendNotification);
+                statusBadgeLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGreen);
+            } catch (const std::exception& ex) {
+                modal->setExportError(ex.what());
+            }
+        },
+        [this]() {
+            if (exportDialogModal_) {
+                removeChildComponent(exportDialogModal_.get());
+                exportDialogModal_.reset();
             }
         }
+    );
 
-        // Auto-export the counterpart format into ./exports/ as well for convenience
-        if (format == audio::AudioExportFormat::Wav24Bit) {
-            auto mp3Bytes = audio::AudioExporter::encodeMp3(mastered.masteredAudio, 44100.0);
-            auto mp3File = exportsDir.getChildFile(juce::String(currentTrackTitle_) + "_reggae_master.mp3");
-            std::ofstream mp3Out(mp3File.getFullPathName().toStdString(), std::ios::binary);
-            if (mp3Out.is_open()) mp3Out.write(reinterpret_cast<const char*>(mp3Bytes.data()), mp3Bytes.size());
-        } else {
-            auto wavBytes = audio::AudioExporter::encodeWav24Bit(mastered.masteredAudio, 44100.0);
-            auto wavFile = exportsDir.getChildFile(juce::String(currentTrackTitle_) + "_reggae_master.wav");
-            std::ofstream wavOut(wavFile.getFullPathName().toStdString(), std::ios::binary);
-            if (wavOut.is_open()) wavOut.write(reinterpret_cast<const char*>(wavBytes.data()), wavBytes.size());
-        }
-
-        // Mark complete and transform button to "Done"
-        inlineProgressBar_.setProgress(1.0f, "Saved: " + destinationFile.getFileName().toStdString());
-        isExportDoneState_ = true;
-
-        if (format == audio::AudioExportFormat::Mp3_320Kbps) {
-            exportMp3Button_.setButtonText("Done");
-            exportMp3Button_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::accentGreen);
-            exportMp3Button_.setColour(juce::TextButton::textColourOffId, ui::ReggaeWaveTheme::bgDark);
-        } else {
-            exportWavButton_.setButtonText("Done");
-            exportWavButton_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::accentGreen);
-            exportWavButton_.setColour(juce::TextButton::textColourOffId, ui::ReggaeWaveTheme::bgDark);
-        }
-    } catch (const std::exception& ex) {
-        inlineProgressBar_.setVisible(false);
-        statusBadgeLabel_.setVisible(true);
-        resetExportButtons();
-        statusBadgeLabel_.setText("Export Error: " + juce::String(ex.what()), juce::dontSendNotification);
-        statusBadgeLabel_.setColour(juce::Label::textColourId, juce::Colours::red);
-    }
-}
-
-void MainComponent::resetExportButtons() {
-    isExportDoneState_ = false;
-    inlineProgressBar_.setVisible(false);
-    statusBadgeLabel_.setVisible(true);
-    statusBadgeLabel_.setText("Master Saved in exports/", juce::dontSendNotification);
-    statusBadgeLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGreen);
-
-    exportMp3Button_.setButtonText("Export MP3 (320k)");
-    exportMp3Button_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::accentGreen);
-    exportMp3Button_.setColour(juce::TextButton::textColourOffId, ui::ReggaeWaveTheme::bgDark);
-
-    exportWavButton_.setButtonText("Export WAV (24-bit)");
-    exportWavButton_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::bgElevated);
-    exportWavButton_.setColour(juce::TextButton::textColourOffId, ui::ReggaeWaveTheme::textPrimary);
+    exportDialogModal_->setBounds(getLocalBounds());
+    addAndMakeVisible(exportDialogModal_.get());
 }
 
 void MainComponent::paint(juce::Graphics& g) {
@@ -451,10 +369,7 @@ void MainComponent::resized() {
     rightsStatusButton_.setBounds(headerArea.removeFromLeft(150).reduced(0, 6));
     headerArea.removeFromLeft(10);
 
-    // Status area / Progress Bar overlap
-    auto statusBounds = headerArea.removeFromLeft(220);
-    statusBadgeLabel_.setBounds(statusBounds);
-    inlineProgressBar_.setBounds(statusBounds.reduced(0, 7));
+    statusBadgeLabel_.setBounds(headerArea.removeFromLeft(220));
 
     exportMp3Button_.setBounds(headerArea.removeFromRight(140));
     headerArea.removeFromRight(8);
@@ -480,6 +395,9 @@ void MainComponent::resized() {
 
     if (rightsModal_) {
         rightsModal_->setBounds(getLocalBounds());
+    }
+    if (exportDialogModal_) {
+        exportDialogModal_->setBounds(getLocalBounds());
     }
 }
 

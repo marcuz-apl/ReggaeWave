@@ -15,7 +15,7 @@
 #include "UI/TuningPanel.h"
 #include "UI/WaveformABView.h"
 #include "UI/RightsAttestationModal.h"
-#include "UI/InlineExportProgressBar.h"
+#include "UI/ExportDialogModal.h"
 #include "UI/LyricEditorView.h"
 
 #include <memory>
@@ -42,8 +42,6 @@ private:
     void handleRightsConfirmed(contracts::RightsBasis basis);
     void processImportedFile(const juce::File& file);
     void handleExportRequested(audio::AudioExportFormat format);
-    void performExportToFile(const juce::File& destinationFile, audio::AudioExportFormat format);
-    void resetExportButtons();
     void togglePlayback();
     void renderPreviewWavToDisk();
 
@@ -63,7 +61,6 @@ private:
     juce::Label appTitleLabel_;
     juce::Label statusBadgeLabel_;
     juce::TextButton rightsStatusButton_{"Rights: Confirmed"};
-    ui::InlineExportProgressBar inlineProgressBar_;
 
     // Primary Actions
     juce::TextButton importButton_{"Import Track"};
@@ -76,12 +73,11 @@ private:
     ui::TuningPanel tuningPanel_;
     ui::LyricEditorView lyricEditor_;
     std::unique_ptr<ui::RightsAttestationModal> rightsModal_;
+    std::unique_ptr<ui::ExportDialogModal> exportDialogModal_;
     std::unique_ptr<juce::FileChooser> fileChooser_;
 
     bool isPlaying_ = false;
     bool rightsConfirmedOnce_ = false;
-    bool isExportDoneState_ = false;
-    audio::AudioExportFormat lastExportFormat_ = audio::AudioExportFormat::Mp3_320Kbps;
     contracts::ConversionJobState currentState_ = contracts::ConversionJobState::Created;
     contracts::RightsBasis attestedBasis_ = contracts::RightsBasis::Owned;
 };

@@ -6,13 +6,15 @@ namespace reggaewave::ui {
 RightsAttestationModal::RightsAttestationModal(OnConfirmedCallback onConfirmed)
     : onConfirmed_(std::move(onConfirmed))
 {
+    setAlwaysOnTop(true);
+
     titleLabel_.setText("Music Rights Attestation", juce::dontSendNotification);
     titleLabel_.setFont(juce::FontOptions(22.0f, juce::Font::bold));
-    titleLabel_.setColour(juce::Label::textColourId, ReggaeWaveTheme::textPrimary);
+    titleLabel_.setColour(juce::Label::textColourId, ReggaeWaveTheme::accentGold);
     addAndMakeVisible(titleLabel_);
 
     subtitleLabel_.setText("ReggaeWave requires an authorized basis before any audio transformation begins.", juce::dontSendNotification);
-    subtitleLabel_.setFont(juce::FontOptions(14.0f));
+    subtitleLabel_.setFont(juce::FontOptions(13.5f));
     subtitleLabel_.setColour(juce::Label::textColourId, ReggaeWaveTheme::textSecondary);
     addAndMakeVisible(subtitleLabel_);
 
@@ -50,34 +52,36 @@ void RightsAttestationModal::updateButtonState() {
 }
 
 void RightsAttestationModal::paint(juce::Graphics& g) {
-    g.fillAll(ReggaeWaveTheme::bgDark.withAlpha(0.9f));
+    // Dim background overlay
+    g.fillAll(juce::Colours::black.withAlpha(0.75f));
 
-    auto bounds = getLocalBounds().toFloat().reduced(20.0f);
+    // Centered Dialog Card
+    auto cardArea = getLocalBounds().withSizeKeepingCentre(620, 360).toFloat();
     g.setColour(ReggaeWaveTheme::bgSurface);
-    g.fillRoundedRectangle(bounds, 12.0f);
+    g.fillRoundedRectangle(cardArea, 14.0f);
 
     g.setColour(ReggaeWaveTheme::bgElevated);
-    g.drawRoundedRectangle(bounds, 12.0f, 1.5f);
+    g.drawRoundedRectangle(cardArea, 14.0f, 1.5f);
 }
 
 void RightsAttestationModal::resized() {
-    auto area = getLocalBounds().reduced(40);
+    auto cardArea = getLocalBounds().withSizeKeepingCentre(620, 360).reduced(24);
 
-    titleLabel_.setBounds(area.removeFromTop(32));
-    subtitleLabel_.setBounds(area.removeFromTop(24));
-    area.removeFromTop(20);
+    titleLabel_.setBounds(cardArea.removeFromTop(32));
+    subtitleLabel_.setBounds(cardArea.removeFromTop(24));
+    cardArea.removeFromTop(16);
 
-    ownedOption_.setBounds(area.removeFromTop(30));
-    area.removeFromTop(6);
-    licensedOption_.setBounds(area.removeFromTop(30));
-    area.removeFromTop(6);
-    publicDomainOption_.setBounds(area.removeFromTop(30));
-    area.removeFromTop(20);
+    ownedOption_.setBounds(cardArea.removeFromTop(28));
+    cardArea.removeFromTop(4);
+    licensedOption_.setBounds(cardArea.removeFromTop(28));
+    cardArea.removeFromTop(4);
+    publicDomainOption_.setBounds(cardArea.removeFromTop(28));
+    cardArea.removeFromTop(16);
 
-    confirmCheckbox_.setBounds(area.removeFromTop(30));
-    area.removeFromTop(24);
+    confirmCheckbox_.setBounds(cardArea.removeFromTop(28));
+    cardArea.removeFromTop(20);
 
-    confirmButton_.setBounds(area.removeFromTop(44).reduced(60, 0));
+    confirmButton_.setBounds(cardArea.removeFromTop(40).withSizeKeepingCentre(220, 40));
 }
 
 } // namespace reggaewave::ui
