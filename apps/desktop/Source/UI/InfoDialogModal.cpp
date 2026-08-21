@@ -13,10 +13,12 @@ InfoDialogModal::InfoDialogModal(OnClose onClose)
     titleLabel_.setColour(juce::Label::textColourId, ReggaeWaveTheme::accentGold);
     addAndMakeVisible(titleLabel_);
 
-#ifdef REGGAEWAVE_APP_VERSION_STRING
+#if defined(REGGAEWAVE_APP_SEMVER) && defined(REGGAEWAVE_APP_VERSION_STRING)
+    versionLabel_.setText("Version " REGGAEWAVE_APP_SEMVER " (" REGGAEWAVE_APP_VERSION_STRING ") | Jamaican Living Heritage Engine", juce::dontSendNotification);
+#elif defined(REGGAEWAVE_APP_VERSION_STRING)
     versionLabel_.setText("Version " REGGAEWAVE_APP_VERSION_STRING " | Jamaican Living Heritage Engine", juce::dontSendNotification);
 #else
-    versionLabel_.setText("Version 1.2.5 | Jamaican Living Heritage Engine", juce::dontSendNotification);
+    versionLabel_.setText("Version 1.2.8 | Jamaican Living Heritage Engine", juce::dontSendNotification);
 #endif
     versionLabel_.setFont(juce::FontOptions(13.0f, juce::Font::bold));
     versionLabel_.setColour(juce::Label::textColourId, ReggaeWaveTheme::accentGreen);

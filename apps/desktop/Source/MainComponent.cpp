@@ -40,10 +40,12 @@ MainComponent::MainComponent()
     appTitleLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGold);
     addAndMakeVisible(appTitleLabel_);
 
-#ifdef REGGAEWAVE_APP_VERSION_STRING
+#ifdef REGGAEWAVE_APP_SEMVER
+    versionBadgeLabel_.setText("v" REGGAEWAVE_APP_SEMVER, juce::dontSendNotification);
+#elif defined(REGGAEWAVE_APP_VERSION_STRING)
     versionBadgeLabel_.setText("v" REGGAEWAVE_APP_VERSION_STRING, juce::dontSendNotification);
 #else
-    versionBadgeLabel_.setText("v1.2.5", juce::dontSendNotification);
+    versionBadgeLabel_.setText("v1.2.8", juce::dontSendNotification);
 #endif
     versionBadgeLabel_.setFont(juce::FontOptions(11.5f, juce::Font::bold));
     versionBadgeLabel_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::textSecondary);

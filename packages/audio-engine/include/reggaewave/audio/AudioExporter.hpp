@@ -10,6 +10,67 @@
 #include <sstream>
 #include <iomanip>
 #include <cstdlib>
+#include <filesystem>
+
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+
+namespace reggaewave::audio::detail {
+
+inline int executeCommandSilently(const std::string& command) {
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+    si.dwFlags = STARTF_USESHOWWINDOW;
+    si.wShowWindow = SW_HIDE;
+    ZeroMemory(&pi, sizeof(pi));
+
+    std::string cmd = "cmd.exe /c " + command;
+    std::vector<char> cmdBuffer(cmd.begin(), cmd.end());
+    cmdBuffer.push_back('\0');
+
+    if (!CreateProcessA(
+            NULL,
+            cmdBuffer.data(),
+            NULL,
+            NULL,
+            FALSE,
+            CREATE_NO_WINDOW,
+            NULL,
+            NULL,
+            &si,
+            &pi)) {
+        return -1;
+    }
+
+    WaitForSingleObject(pi.hProcess, 30000); // 30s timeout
+
+    DWORD exitCode = 0;
+    GetExitCodeProcess(pi.hProcess, &exitCode);
+
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+
+    return static_cast<int>(exitCode);
+}
+
+} // namespace reggaewave::audio::detail
+#else
+namespace reggaewave::audio::detail {
+
+inline int executeCommandSilently(const std::string& command) {
+    return std::system(command.c_str());
+}
+
+} // namespace reggaewave::audio::detail
+#endif
 
 namespace reggaewave::audio {
 
@@ -98,15 +159,20 @@ public:
     static std::vector<uint8_t> encodeMp3(const std::vector<std::vector<float>>& stereoChannels, double sampleRate = 44100.0) {
         auto wavBytes = encodeWav24Bit(stereoChannels, sampleRate);
         
-        std::string tempWav = "/tmp/reggaewave_encode_tmp.wav";
-        std::string tempMp3 = "/tmp/reggaewave_encode_tmp.mp3";
+        std::error_code ec;
+        auto tempDir = std::filesystem::temp_directory_path(ec);
+        std::string tempWav = (tempDir / "reggaewave_encode_tmp.wav").string();
+        std::string tempMp3 = (tempDir / "reggaewave_encode_tmp.mp3").string();
+
         {
             std::ofstream f(tempWav, std::ios::binary);
-            f.write(reinterpret_cast<const char*>(wavBytes.data()), wavBytes.size());
+            if (f.is_open()) {
+                f.write(reinterpret_cast<const char*>(wavBytes.data()), wavBytes.size());
+            }
         }
         
         std::string convCmd = "ffmpeg -y -v quiet -i \"" + tempWav + "\" -codec:a libmp3lame -b:a 320k \"" + tempMp3 + "\"";
-        int res = std::system(convCmd.c_str());
+        int res = detail::executeCommandSilently(convCmd);
         if (res == 0) {
             std::ifstream mp3File(tempMp3, std::ios::binary | std::ios::ate);
             if (mp3File.is_open()) {
@@ -114,9 +180,13 @@ public:
                 mp3File.seekg(0, std::ios::beg);
                 std::vector<uint8_t> mp3Bytes(size);
                 mp3File.read(reinterpret_cast<char*>(mp3Bytes.data()), size);
+                mp3File.close();
+                std::filesystem::remove(tempWav, ec);
+                std::filesystem::remove(tempMp3, ec);
                 return mp3Bytes;
             }
         }
+        std::filesystem::remove(tempWav, ec);
         return wavBytes;
     }
 
