@@ -42,8 +42,8 @@ target_sources(ReggaeWave PRIVATE
     Source/UI/StudioPlaybackCard.cpp
     Source/UI/ExportDeckCard.h
     Source/UI/ExportDeckCard.cpp
-    Source/UI/InfoDialogModal.h
-    Source/UI/InfoDialogModal.cpp
+    Source/UI/AboutDialogModal.h
+    Source/UI/AboutDialogModal.cpp
     Source/UI/ImportFileModal.h
     Source/UI/ImportFileModal.cpp
     Source/UI/InlineExportProgressBar.h
@@ -63,6 +63,8 @@ target_compile_features(ReggaeWave PRIVATE cxx_std_20)
 target_compile_definitions(ReggaeWave PRIVATE
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
+    JUCE_ALSA_MIDI=0
+    JUCE_USE_ALSA_MIDI=0
 )
 
 target_link_libraries(ReggaeWave PRIVATE

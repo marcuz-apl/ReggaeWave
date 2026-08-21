@@ -3,11 +3,11 @@
 #include <string_view>
 
 #ifndef REGGAEWAVE_APP_SEMVER
-#define REGGAEWAVE_APP_SEMVER "1.2.9"
+#define REGGAEWAVE_APP_SEMVER "1.3.0"
 #endif
 
 #ifndef REGGAEWAVE_APP_VERSION_STRING
-#define REGGAEWAVE_APP_VERSION_STRING "1.2.9-2608212"
+#define REGGAEWAVE_APP_VERSION_STRING "1.3.0-2608213"
 #endif
 
 namespace reggaewave::contracts {

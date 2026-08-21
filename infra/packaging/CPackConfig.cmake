@@ -1,7 +1,7 @@
 # ReggaeWave CPack Release Configuration
 
 set(CPACK_PACKAGE_NAME "ReggaeWave")
-set(CPACK_PACKAGE_VENDOR "ReggaeWave")
+set(CPACK_PACKAGE_VENDOR "Alfazen-Inc")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Convert any music genre into authentic Reggae")
 set(CPACK_PACKAGE_VERSION_MAJOR ${REGGAEWAVE_VERSION_MAJOR})
 set(CPACK_PACKAGE_VERSION_MINOR ${REGGAEWAVE_VERSION_MINOR})
@@ -34,10 +34,10 @@ else()
     set(CPACK_GENERATOR "DEB;RPM")
     
     # Debian Configuration
-    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "ReggaeWave Team <team@reggaewave.internal>")
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Alfazen-Inc <team@reggaewave.internal>")
     set(CPACK_DEBIAN_PACKAGE_SECTION "sound")
     set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS OFF)
-    set(CPACK_DEBIAN_PACKAGE_DEPENDS "libasound2t64 | libasound2, libx11-6, libfreetype6, libgtk-3-0t64 | libgtk-3-0")
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "libasound2t64 | libasound2, libasound2-plugins, libx11-6, libfreetype6, libgtk-3-0t64 | libgtk-3-0")
     
     # RPM Configuration
     set(CPACK_RPM_PACKAGE_SUMMARY "Convert any music genre into authentic Reggae")

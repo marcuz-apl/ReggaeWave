@@ -83,12 +83,55 @@ MainComponent::MainComponent()
     dubProcessor_.prepare(44100.0, 512, 2);
 
     // Initialize Native OS Audio Device Hardware (WASAPI on Windows, CoreAudio on macOS, ALSA/Pulse on Linux & WSL)
-    juce::String audioErr = deviceManager_.initialiseWithDefaultDevices(0, 2);
-    if (audioErr.isNotEmpty()) {
-        audioErr = deviceManager_.initialise(0, 2, nullptr, true);
+    deviceManager_.initialiseWithDefaultDevices(0, 2);
+
+    // Fallback for virtualized/WSL ALSA environments where hardware soundcards are routed via PulseAudio/PipeWire
+    if (deviceManager_.getCurrentAudioDevice() == nullptr) {
+        const juce::StringArray preferredDevices = { "default", "pulse", "sysdefault", "" };
+        for (const auto& dev : preferredDevices) {
+            juce::AudioDeviceManager::AudioDeviceSetup setup;
+            setup.outputDeviceName = dev;
+            setup.inputDeviceName = "";
+            setup.sampleRate = 44100.0;
+            setup.bufferSize = 512;
+            setup.useDefaultInputChannels = false;
+            setup.useDefaultOutputChannels = true;
+            setup.outputChannels.setBit(0);
+            setup.outputChannels.setBit(1);
+            if (deviceManager_.setAudioDeviceSetup(setup, true).isEmpty() &&
+                deviceManager_.getCurrentAudioDevice() != nullptr) {
+                break;
+            }
+        }
     }
-    if (audioErr.isNotEmpty()) {
-        deviceManager_.initialise(2, 2, nullptr, true);
+
+    if (deviceManager_.getCurrentAudioDevice() == nullptr) {
+        for (auto* dt : deviceManager_.getAvailableDeviceTypes()) {
+            dt->scanForDevices();
+            const auto outDevices = dt->getDeviceNames(false);
+            for (const auto& devName : outDevices) {
+                juce::AudioDeviceManager::AudioDeviceSetup setup;
+                setup.outputDeviceName = devName;
+                setup.inputDeviceName = "";
+                setup.sampleRate = 44100.0;
+                setup.bufferSize = 512;
+                setup.useDefaultInputChannels = false;
+                setup.useDefaultOutputChannels = true;
+                setup.outputChannels.setBit(0);
+                setup.outputChannels.setBit(1);
+                if (deviceManager_.setAudioDeviceSetup(setup, true).isEmpty() &&
+                    deviceManager_.getCurrentAudioDevice() != nullptr) {
+                    break;
+                }
+            }
+            if (deviceManager_.getCurrentAudioDevice() != nullptr) {
+                break;
+            }
+        }
+    }
+
+    if (deviceManager_.getCurrentAudioDevice() == nullptr) {
+        deviceManager_.initialise(0, 2, nullptr, true);
     }
     deviceManager_.addAudioCallback(this);
 
@@ -407,7 +450,7 @@ void MainComponent::handleExportRequested(audio::AudioExportFormat format, bool 
 }
 
 void MainComponent::showAboutModal() {
-    aboutModal_ = std::make_unique<ui::InfoDialogModal>([this]() {
+    aboutModal_ = std::make_unique<ui::AboutDialogModal>([this]() {
         if (aboutModal_) {
             removeChildComponent(aboutModal_.get());
             aboutModal_.reset();

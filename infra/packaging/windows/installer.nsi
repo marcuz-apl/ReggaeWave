@@ -2,14 +2,14 @@
 ; ------------------------------------------------
 
 !define PRODUCT_NAME "ReggaeWave"
-!define PRODUCT_PUBLISHER "ReggaeWave"
+!define PRODUCT_PUBLISHER "Alfazen-Inc"
 !define PRODUCT_WEB_SITE "https://github.com/marcuz-apl/ReggaeWave"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\ReggaeWave.exe"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
 !define PRODUCT_UNINST_ROOT_KEY "HKLM"
 
 !ifndef PRODUCT_VERSION
-  !define PRODUCT_VERSION "1.2.9"
+  !define PRODUCT_VERSION "1.3.0"
 !endif
 
 !ifndef EXE_SOURCE

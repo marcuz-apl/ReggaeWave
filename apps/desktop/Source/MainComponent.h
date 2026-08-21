@@ -19,7 +19,7 @@
 #include "UI/ExportDeckCard.h"
 #include "UI/RightsAttestationModal.h"
 #include "UI/ExportDialogModal.h"
-#include "UI/InfoDialogModal.h"
+#include "UI/AboutDialogModal.h"
 #include "UI/ImportFileModal.h"
 
 #include <memory>
@@ -92,7 +92,7 @@ private:
     // Modal Overlays (Always 100% Centered)
     std::unique_ptr<ui::RightsAttestationModal> rightsModal_;
     std::unique_ptr<ui::ExportDialogModal> exportDialogModal_;
-    std::unique_ptr<ui::InfoDialogModal> aboutModal_;
+    std::unique_ptr<ui::AboutDialogModal> aboutModal_;
     std::unique_ptr<ui::ImportFileModal> importFileModal_;
 
     std::atomic<bool> isPlaying_{false};
