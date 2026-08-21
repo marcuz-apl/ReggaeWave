@@ -20,6 +20,10 @@
   !define OUTPUT_DIR "..\..\dist"
 !endif
 
+!ifndef ICON_FILE
+  !define ICON_FILE "..\assets\reggaewave.ico"
+!endif
+
 ; Compressor settings
 SetCompressor /SOLID lzma
 Unicode true
@@ -31,8 +35,8 @@ RequestExecutionLevel admin
 
 ; Interface Settings
 !define MUI_ABORTWARNING
-!define MUI_ICON "..\assets\reggaewave.ico"
-!define MUI_UNICON "..\assets\reggaewave.ico"
+!define MUI_ICON "${ICON_FILE}"
+!define MUI_UNICON "${ICON_FILE}"
 
 ; Pages
 !insertmacro MUI_PAGE_WELCOME

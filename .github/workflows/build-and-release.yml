@@ -130,17 +130,27 @@ jobs:
             # Read version from VERSION file
             $ver = (Get-Content VERSION -First 1).Trim()
             $semver = ($ver -replace '-.*$', '')
+            
+            $repoRoot = (Get-Location).Path
+            $distDir = Join-Path $repoRoot "dist"
+            $iconPath = Join-Path $repoRoot "infra\packaging\assets\reggaewave.ico"
+            $nsiScript = Join-Path $repoRoot "infra\packaging\windows\installer.nsi"
+            $exePath = $exe.FullName
+
             Write-Host "Compiling NSIS installer (version $semver) with $makensisCmd..."
-            & $makensisCmd -DPRODUCT_VERSION=$semver -DEXE_SOURCE="$($exe.FullName)" -DOUTPUT_DIR="dist" infra/packaging/windows/installer.nsi
+            Write-Host "EXE: $exePath"
+            Write-Host "Icon: $iconPath"
+            Write-Host "Output: $distDir"
+            & $makensisCmd -DPRODUCT_VERSION=$semver -DEXE_SOURCE="$exePath" -DICON_FILE="$iconPath" -DOUTPUT_DIR="$distDir" "$nsiScript"
             if ($LASTEXITCODE -ne 0) {
               Write-Error "makensis failed with exit code $LASTEXITCODE"
               exit 1
             }
             
-            if (Test-Path "dist/ReggaeWave-Setup.exe") {
-              Write-Host "Successfully generated dist/ReggaeWave-Setup.exe"
+            if (Test-Path "$distDir\ReggaeWave-Setup.exe") {
+              Write-Host "Successfully generated $distDir\ReggaeWave-Setup.exe"
             } else {
-              Write-Error "dist/ReggaeWave-Setup.exe missing"
+              Write-Error "ReggaeWave-Setup.exe missing in $distDir"
               exit 1
             }
           } else {
