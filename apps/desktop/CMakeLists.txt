@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.22)
 
 # Check if JUCE is already available or fetch it
 if(NOT TARGET juce::juce_gui_basics)
+    set(JUCE_INSTALL OFF CACHE BOOL "Disable JUCE install rules" FORCE)
     include(FetchContent)
     FetchContent_Declare(
         JUCE
@@ -90,27 +91,27 @@ endif()
 
 # Installation rules for package generation (DEB, RPM, DMG, NSIS)
 install(TARGETS ReggaeWave
-    BUNDLE DESTINATION .
-    RUNTIME DESTINATION bin
+    BUNDLE DESTINATION . COMPONENT ReggaeWave
+    RUNTIME DESTINATION bin COMPONENT ReggaeWave
 )
 if(UNIX AND NOT APPLE)
     install(FILES "${CMAKE_SOURCE_DIR}/infra/packaging/linux/reggaewave.desktop"
-            DESTINATION share/applications)
+            DESTINATION share/applications COMPONENT ReggaeWave)
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/Resources/reggaewave_512.png"
             DESTINATION share/icons/hicolor/512x512/apps
-            RENAME reggaewave.png)
+            RENAME reggaewave.png COMPONENT ReggaeWave)
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/Resources/reggaewave_256.png"
             DESTINATION share/icons/hicolor/256x256/apps
-            RENAME reggaewave.png)
+            RENAME reggaewave.png COMPONENT ReggaeWave)
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/Resources/reggaewave_128.png"
             DESTINATION share/icons/hicolor/128x128/apps
-            RENAME reggaewave.png)
+            RENAME reggaewave.png COMPONENT ReggaeWave)
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/Resources/reggaewave_64.png"
             DESTINATION share/icons/hicolor/64x64/apps
-            RENAME reggaewave.png)
+            RENAME reggaewave.png COMPONENT ReggaeWave)
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/Resources/reggaewave_32.png"
             DESTINATION share/icons/hicolor/32x32/apps
-            RENAME reggaewave.png)
+            RENAME reggaewave.png COMPONENT ReggaeWave)
 endif()
 
 

@@ -31,8 +31,8 @@ RequestExecutionLevel admin
 
 ; Interface Settings
 !define MUI_ABORTWARNING
-!define MUI_ICON "..\assets\reggaewave.png"
-!define MUI_UNICON "..\assets\reggaewave.png"
+!define MUI_ICON "..\assets\reggaewave.ico"
+!define MUI_UNICON "..\assets\reggaewave.ico"
 
 ; Pages
 !insertmacro MUI_PAGE_WELCOME

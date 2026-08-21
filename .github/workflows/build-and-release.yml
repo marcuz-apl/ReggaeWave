@@ -113,12 +113,32 @@ jobs:
             New-Item -ItemType Directory -Force -Path "dist"
             Copy-Item -Path $exe.FullName -Destination "dist/ReggaeWave.exe"
             
-            # Compile NSIS Installer
-            if (Get-Command makensis -ErrorAction SilentlyContinue) {
-              Write-Host "Building NSIS installer..."
-              makensis -DPRODUCT_VERSION=1.2.8 -DEXE_SOURCE="$($exe.FullName)" -DOUTPUT_DIR="dist" infra/packaging/windows/installer.nsi
+            # Locate makensis compiler
+            $makensisCmd = "makensis"
+            if (-not (Get-Command makensis -ErrorAction SilentlyContinue)) {
+              if (Test-Path "C:\Program Files (x86)\NSIS\makensis.exe") {
+                $makensisCmd = "C:\Program Files (x86)\NSIS\makensis.exe"
+              } elseif (Test-Path "C:\Program Files\NSIS\makensis.exe") {
+                $makensisCmd = "C:\Program Files\NSIS\makensis.exe"
+              } else {
+                Write-Host "Installing NSIS via choco..."
+                choco install nsis -y
+                $makensisCmd = "C:\Program Files (x86)\NSIS\makensis.exe"
+              }
+            }
+            
+            Write-Host "Compiling NSIS installer with $makensisCmd..."
+            & $makensisCmd -DPRODUCT_VERSION=1.2.8 -DEXE_SOURCE="$($exe.FullName)" -DOUTPUT_DIR="dist" infra/packaging/windows/installer.nsi
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "makensis failed with exit code $LASTEXITCODE"
+              exit 1
+            }
+            
+            if (Test-Path "dist/ReggaeWave-Setup.exe") {
+              Write-Host "Successfully generated dist/ReggaeWave-Setup.exe"
             } else {
-              Write-Warning "makensis not found, distributing standalone executable"
+              Write-Error "dist/ReggaeWave-Setup.exe missing"
+              exit 1
             }
           } else {
             Write-Error "ReggaeWave.exe not found"

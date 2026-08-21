@@ -82,8 +82,14 @@ MainComponent::MainComponent()
     dualTransport_.prepare(44100.0, 2);
     dubProcessor_.prepare(44100.0, 512, 2);
 
-    // Initialize Native OS Audio Device Hardware (WASAPI / DirectSound on Windows, CoreAudio on macOS, ALSA on Linux)
-    deviceManager_.initialiseWithDefaultDevices(0, 2);
+    // Initialize Native OS Audio Device Hardware (WASAPI on Windows, CoreAudio on macOS, ALSA/Pulse on Linux & WSL)
+    juce::String audioErr = deviceManager_.initialiseWithDefaultDevices(0, 2);
+    if (audioErr.isNotEmpty()) {
+        audioErr = deviceManager_.initialise(0, 2, nullptr, true);
+    }
+    if (audioErr.isNotEmpty()) {
+        deviceManager_.initialise(2, 2, nullptr, true);
+    }
     deviceManager_.addAudioCallback(this);
 
     startTimerHz(30);
@@ -153,6 +159,21 @@ void MainComponent::audioDeviceIOCallbackWithContext(const float* const* /*input
 void MainComponent::timerCallback() {
     const juce::ScopedLock sl(audioLock_);
     if (isPlaying_ && dualTransport_.getTotalLengthSamples() > 0) {
+        // If no hardware audio device is active (e.g. running in WSL headless / virtual environment without audio driver pumping callbacks), simulate playhead advancing
+        if (deviceManager_.getCurrentAudioDevice() == nullptr) {
+            size_t current = dualTransport_.getPlayheadSample();
+            size_t total = dualTransport_.getTotalLengthSamples();
+            size_t step = static_cast<size_t>(currentSampleRate_ / 30.0);
+            if (current + step >= total) {
+                dualTransport_.setPlayheadSample(total);
+                juce::MessageManager::callAsync([this]() {
+                    isPlaying_ = false;
+                    studioCard_.setIsPlaying(false);
+                });
+            } else {
+                dualTransport_.setPlayheadSample(current + step);
+            }
+        }
         double progress = static_cast<double>(dualTransport_.getPlayheadSample()) / 
                           static_cast<double>(dualTransport_.getTotalLengthSamples());
         studioCard_.setPlaybackProgress(progress);

@@ -9,6 +9,13 @@ set(CPACK_PACKAGE_VERSION_PATCH ${REGGAEWAVE_VERSION_PATCH})
 set(CPACK_PACKAGE_VERSION "${REGGAEWAVE_PROJECT_VERSION}")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/README.md")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "ReggaeWave")
+set(CPACK_STRIP_FILES TRUE)
+
+# Component filtering to only package ReggaeWave binary & desktop icons (exclude SDK headers/modules)
+set(CPACK_INSTALL_CMAKE_PROJECTS "${CMAKE_BINARY_DIR};ReggaeWave;ReggaeWave;/")
+set(CPACK_COMPONENTS_ALL ReggaeWave)
+set(CPACK_DEB_COMPONENT_INSTALL OFF)
+set(CPACK_RPM_COMPONENT_INSTALL OFF)
 
 if(APPLE)
     # macOS DMG & App Bundle
@@ -37,7 +44,7 @@ else()
     set(CPACK_RPM_PACKAGE_LICENSE "Proprietary")
     set(CPACK_RPM_PACKAGE_GROUP "Applications/Multimedia")
     set(CPACK_RPM_PACKAGE_AUTOREQPROV OFF)
+    set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION "/usr/share/icons;/usr/share/icons/hicolor;/usr/share/applications")
 endif()
 
 include(CPack)
-
