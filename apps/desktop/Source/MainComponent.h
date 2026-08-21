@@ -20,6 +20,7 @@
 #include "UI/RightsAttestationModal.h"
 #include "UI/ExportDialogModal.h"
 #include "UI/AboutDialogModal.h"
+#include "UI/HelpDialogModal.h"
 #include "UI/ImportFileModal.h"
 
 #include <memory>
@@ -58,6 +59,7 @@ private:
     void togglePlayback();
     void rewindPlayback();
     void showAboutModal();
+    void showHelpModal();
 
     // Theme & Audio Thread Synchronization
     ui::ReggaeWaveTheme theme_;
@@ -82,6 +84,7 @@ private:
     juce::Label versionBadgeLabel_;
     juce::TextButton rightsStatusButton_{"Rights: Owned"};
     juce::Label engineStatusBadge_;
+    juce::TextButton helpButton_{"Help"};
     juce::TextButton aboutButton_{"About"};
 
     // 3 Stacked Functional Cards
@@ -93,6 +96,7 @@ private:
     std::unique_ptr<ui::RightsAttestationModal> rightsModal_;
     std::unique_ptr<ui::ExportDialogModal> exportDialogModal_;
     std::unique_ptr<ui::AboutDialogModal> aboutModal_;
+    std::unique_ptr<ui::HelpDialogModal> helpModal_;
     std::unique_ptr<ui::ImportFileModal> importFileModal_;
 
     std::atomic<bool> isPlaying_{false};

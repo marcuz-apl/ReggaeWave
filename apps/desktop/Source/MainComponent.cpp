@@ -67,6 +67,12 @@ MainComponent::MainComponent()
     engineStatusBadge_.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(engineStatusBadge_);
 
+    helpButton_.setButtonText("Help");
+    helpButton_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::bgElevated);
+    helpButton_.setColour(juce::TextButton::textColourOffId, ui::ReggaeWaveTheme::textPrimary);
+    helpButton_.onClick = [this]() { showHelpModal(); };
+    addAndMakeVisible(helpButton_);
+
     aboutButton_.setButtonText("About");
     aboutButton_.setColour(juce::TextButton::buttonColourId, ui::ReggaeWaveTheme::bgElevated);
     aboutButton_.setColour(juce::TextButton::textColourOffId, ui::ReggaeWaveTheme::textPrimary);
@@ -460,6 +466,17 @@ void MainComponent::showAboutModal() {
     addAndMakeVisible(aboutModal_.get());
 }
 
+void MainComponent::showHelpModal() {
+    helpModal_ = std::make_unique<ui::HelpDialogModal>([this]() {
+        if (helpModal_) {
+            removeChildComponent(helpModal_.get());
+            helpModal_.reset();
+        }
+    });
+    helpModal_->setBounds(getLocalBounds());
+    addAndMakeVisible(helpModal_.get());
+}
+
 void MainComponent::paint(juce::Graphics& g) {
     g.fillAll(ui::ReggaeWaveTheme::bgDark);
 
@@ -496,12 +513,14 @@ void MainComponent::resized() {
     appTitleLabel_.setBounds(headerArea.removeFromLeft(140));
     versionBadgeLabel_.setBounds(headerArea.removeFromLeft(55).withSizeKeepingCentre(50, 22));
 
-    // Right: About + Engine Status + Rights Button
-    aboutButton_.setBounds(headerArea.removeFromRight(65).reduced(0, 3));
+    // Right: About + Help + Engine Status + Rights Button
+    aboutButton_.setBounds(headerArea.removeFromRight(60).reduced(0, 3));
+    headerArea.removeFromRight(6);
+    helpButton_.setBounds(headerArea.removeFromRight(55).reduced(0, 3));
     headerArea.removeFromRight(10);
-    engineStatusBadge_.setBounds(headerArea.removeFromRight(180).withSizeKeepingCentre(175, 24));
+    engineStatusBadge_.setBounds(headerArea.removeFromRight(175).withSizeKeepingCentre(170, 24));
     headerArea.removeFromRight(10);
-    rightsStatusButton_.setBounds(headerArea.removeFromRight(130).reduced(0, 3));
+    rightsStatusButton_.setBounds(headerArea.removeFromRight(120).reduced(0, 3));
 
     // 2. Stacked 3 Cards Layout
     auto cardsArea = area.reduced(16);
@@ -521,6 +540,7 @@ void MainComponent::resized() {
     if (rightsModal_) rightsModal_->setBounds(getLocalBounds());
     if (exportDialogModal_) exportDialogModal_->setBounds(getLocalBounds());
     if (aboutModal_) aboutModal_->setBounds(getLocalBounds());
+    if (helpModal_) helpModal_->setBounds(getLocalBounds());
     if (importFileModal_) importFileModal_->setBounds(getLocalBounds());
 }
 

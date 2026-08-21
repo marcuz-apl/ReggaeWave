@@ -44,6 +44,8 @@ target_sources(ReggaeWave PRIVATE
     Source/UI/ExportDeckCard.cpp
     Source/UI/AboutDialogModal.h
     Source/UI/AboutDialogModal.cpp
+    Source/UI/HelpDialogModal.h
+    Source/UI/HelpDialogModal.cpp
     Source/UI/ImportFileModal.h
     Source/UI/ImportFileModal.cpp
     Source/UI/InlineExportProgressBar.h
