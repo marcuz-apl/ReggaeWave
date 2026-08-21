@@ -127,8 +127,11 @@ jobs:
               }
             }
             
-            Write-Host "Compiling NSIS installer with $makensisCmd..."
-            & $makensisCmd -DPRODUCT_VERSION=1.2.8 -DEXE_SOURCE="$($exe.FullName)" -DOUTPUT_DIR="dist" infra/packaging/windows/installer.nsi
+            # Read version from VERSION file
+            $ver = (Get-Content VERSION -First 1).Trim()
+            $semver = ($ver -replace '-.*$', '')
+            Write-Host "Compiling NSIS installer (version $semver) with $makensisCmd..."
+            & $makensisCmd -DPRODUCT_VERSION=$semver -DEXE_SOURCE="$($exe.FullName)" -DOUTPUT_DIR="dist" infra/packaging/windows/installer.nsi
             if ($LASTEXITCODE -ne 0) {
               Write-Error "makensis failed with exit code $LASTEXITCODE"
               exit 1

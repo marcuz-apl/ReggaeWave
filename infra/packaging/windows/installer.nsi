@@ -9,7 +9,7 @@
 !define PRODUCT_UNINST_ROOT_KEY "HKLM"
 
 !ifndef PRODUCT_VERSION
-  !define PRODUCT_VERSION "1.2.8"
+  !define PRODUCT_VERSION "1.2.9"
 !endif
 
 !ifndef EXE_SOURCE
