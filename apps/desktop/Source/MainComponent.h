@@ -60,6 +60,7 @@ private:
     void rewindPlayback();
     void showAboutModal();
     void showHelpModal();
+    void handleCleanupToggled(bool enabled);
 
     // Theme & Audio Thread Synchronization
     ui::ReggaeWaveTheme theme_;
@@ -76,6 +77,7 @@ private:
     double currentSampleRate_ = 44100.0;
     double currentDurationSecs_ = 0.0;
     std::string currentTrackTitle_ = "Track";
+    juce::File currentLoadedFile_;
     audio::ActiveVariation currentVariation_ = audio::ActiveVariation::VariationA;
 
     // Header Bar

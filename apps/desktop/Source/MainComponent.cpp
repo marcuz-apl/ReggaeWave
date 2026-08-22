@@ -7,7 +7,10 @@
 namespace reggaewave::desktop {
 
 MainComponent::MainComponent()
-    : importCard_([this]() { handleImportRequested(); })
+    : importCard_(
+        [this]() { handleImportRequested(); },
+        [this](bool enabled) { handleCleanupToggled(enabled); }
+    )
     , studioCard_(
         [this]() { togglePlayback(); },
         [this]() { rewindPlayback(); },
@@ -303,6 +306,7 @@ void MainComponent::openAudioFileChooser() {
 void MainComponent::processImportedFile(const juce::File& file) {
     isPlaying_ = false;
     studioCard_.setIsPlaying(false);
+    currentLoadedFile_ = file;
     currentTrackTitle_ = file.getFileNameWithoutExtension().toStdString();
     importCard_.setImportStatus("Transforming: " + file.getFileName().toStdString() + "...");
     repaint();
@@ -318,8 +322,9 @@ void MainComponent::processImportedFile(const juce::File& file) {
         // 3. Construct verified rights attestation
         contracts::RightsAttestation attestation(attestedBasis_, true, "project-desktop");
         
-        // 4. Run pipeline
-        auto output = pipeline_.execute(wavBytes, attestation, currentTuning_, "project-desktop", currentTrackTitle_);
+        // 4. Run pipeline with 1-click source cleanup & denoise option
+        bool enableCleanup = importCard_.isCleanupEnabled();
+        auto output = pipeline_.execute(wavBytes, attestation, currentTuning_, "project-desktop", currentTrackTitle_, enableCleanup);
         
         // 5. Update Waveform UI & Duration
         studioCard_.setDurationSeconds(currentDurationSecs_);
@@ -340,6 +345,13 @@ void MainComponent::processImportedFile(const juce::File& file) {
         currentState_ = contracts::ConversionJobState::Completed;
     } catch (const std::exception& ex) {
         importCard_.setImportStatus("Import Error: " + std::string(ex.what()), true);
+    }
+}
+
+void MainComponent::handleCleanupToggled(bool enabled) {
+    juce::ignoreUnused(enabled);
+    if (currentLoadedFile_.existsAsFile()) {
+        processImportedFile(currentLoadedFile_);
     }
 }
 

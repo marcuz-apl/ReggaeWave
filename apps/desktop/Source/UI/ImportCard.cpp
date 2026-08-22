@@ -5,8 +5,9 @@
 
 namespace reggaewave::ui {
 
-ImportCard::ImportCard(OnImportClicked onImportClicked)
+ImportCard::ImportCard(OnImportClicked onImportClicked, OnCleanupToggled onCleanupToggled)
     : onImportClicked_(std::move(onImportClicked))
+    , onCleanupToggled_(std::move(onCleanupToggled))
 {
     cardTitleLabel_.setText("1. Audio Intake & Analysis", juce::dontSendNotification);
     cardTitleLabel_.setFont(juce::FontOptions(13.0f, juce::Font::bold));
@@ -20,8 +21,15 @@ ImportCard::ImportCard(OnImportClicked onImportClicked)
     };
     addAndMakeVisible(importButton_);
 
+    denoiseButton_.onClick = [this]() {
+        setCleanupEnabled(!isCleanupEnabled_);
+        if (onCleanupToggled_) onCleanupToggled_(isCleanupEnabled_);
+    };
+    updateDenoiseButtonAppearance();
+    addAndMakeVisible(denoiseButton_);
+
     filenameLabel_.setText(currentFilename_, juce::dontSendNotification);
-    filenameLabel_.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+    filenameLabel_.setFont(juce::FontOptions(13.5f, juce::Font::bold));
     filenameLabel_.setColour(juce::Label::textColourId, ReggaeWaveTheme::textSecondary);
     addAndMakeVisible(filenameLabel_);
 
@@ -39,6 +47,24 @@ ImportCard::ImportCard(OnImportClicked onImportClicked)
     setupBadge(keyBadgeLabel_, "-- Key", ReggaeWaveTheme::accentGold);
     setupBadge(durationBadgeLabel_, "--:--", ReggaeWaveTheme::textPrimary);
     setupBadge(vocalBadgeLabel_, "Lead Vocal Extracted", ReggaeWaveTheme::accentGreen);
+}
+
+void ImportCard::setCleanupEnabled(bool enabled) {
+    isCleanupEnabled_ = enabled;
+    updateDenoiseButtonAppearance();
+    repaint();
+}
+
+void ImportCard::updateDenoiseButtonAppearance() {
+    if (isCleanupEnabled_) {
+        denoiseButton_.setButtonText(juce::String::fromUTF8("⚡ Denoise: ON"));
+        denoiseButton_.setColour(juce::TextButton::buttonColourId, ReggaeWaveTheme::accentGreen.withAlpha(0.25f));
+        denoiseButton_.setColour(juce::TextButton::textColourOffId, ReggaeWaveTheme::accentGreen);
+    } else {
+        denoiseButton_.setButtonText("Denoise: OFF");
+        denoiseButton_.setColour(juce::TextButton::buttonColourId, ReggaeWaveTheme::bgElevated);
+        denoiseButton_.setColour(juce::TextButton::textColourOffId, ReggaeWaveTheme::textSecondary);
+    }
 }
 
 void ImportCard::setTrackInfo(const std::string& filename, const contracts::MusicalAnalysisManifest& manifest, double durationSeconds) {
@@ -125,21 +151,23 @@ void ImportCard::resized() {
 
     area.removeFromTop(6);
 
-    // Main interactive line: Button on left, filename + badges on right
+    // Main interactive line: Buttons on left, filename + badges on right
     auto contentRow = area.removeFromTop(38);
-    importButton_.setBounds(contentRow.removeFromLeft(140));
+    importButton_.setBounds(contentRow.removeFromLeft(130));
+    contentRow.removeFromLeft(10);
+    denoiseButton_.setBounds(contentRow.removeFromLeft(125));
     contentRow.removeFromLeft(14);
 
     if (hasTrack_) {
         // Badges on right side
-        vocalBadgeLabel_.setBounds(contentRow.removeFromRight(150).reduced(0, 5));
-        contentRow.removeFromRight(8);
-        durationBadgeLabel_.setBounds(contentRow.removeFromRight(65).reduced(0, 5));
-        contentRow.removeFromRight(8);
-        keyBadgeLabel_.setBounds(contentRow.removeFromRight(85).reduced(0, 5));
-        contentRow.removeFromRight(8);
-        bpmBadgeLabel_.setBounds(contentRow.removeFromRight(75).reduced(0, 5));
-        contentRow.removeFromRight(12);
+        vocalBadgeLabel_.setBounds(contentRow.removeFromRight(145).reduced(0, 5));
+        contentRow.removeFromRight(6);
+        durationBadgeLabel_.setBounds(contentRow.removeFromRight(60).reduced(0, 5));
+        contentRow.removeFromRight(6);
+        keyBadgeLabel_.setBounds(contentRow.removeFromRight(80).reduced(0, 5));
+        contentRow.removeFromRight(6);
+        bpmBadgeLabel_.setBounds(contentRow.removeFromRight(70).reduced(0, 5));
+        contentRow.removeFromRight(10);
     }
 
     filenameLabel_.setBounds(contentRow);

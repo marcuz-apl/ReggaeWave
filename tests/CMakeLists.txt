@@ -18,6 +18,7 @@ add_executable(reggaewave_tests
     audio/AudioValidatorTests.cpp
     audio/AudioDecoderTests.cpp
     audio/AudioNormalizerTests.cpp
+    audio/AudioCleanerTests.cpp
     audio/StemSeparatorTests.cpp
     audio/MusicAnalyzerTests.cpp
     audio/ReggaeDrumSynthesizerTests.cpp

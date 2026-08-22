@@ -7,6 +7,7 @@
 #include <reggaewave/audio/AudioValidator.hpp>
 #include <reggaewave/audio/AudioNormalizer.hpp>
 #include <reggaewave/audio/AudioDecoder.hpp>
+#include <reggaewave/audio/AudioCleaner.hpp>
 #include <reggaewave/audio/StemSeparator.hpp>
 #include <reggaewave/audio/MusicAnalyzer.hpp>
 #include <reggaewave/audio/ReggaeArranger.hpp>
@@ -45,10 +46,13 @@ public:
                              const contracts::RightsAttestation& rightsAttestation,
                              const contracts::TuningParameters& tuningParams,
                              const std::string& projectId = "proj-001",
-                             const std::string& projectName = "Reggae Transformation") {
+                             const std::string& projectName = "Reggae Transformation",
+                             bool enableCleanup = true) {
         if (!rightsAttestation.isConfirmed()) {
             throw std::invalid_argument("Cannot execute pipeline without confirmed rights attestation");
         }
+
+        enableCleanup_ = enableCleanup;
 
         // 1. Decode Raw Audio
         auto decoded = AudioDecoder::decodeWavBytes(rawAudioBytes.data(), rawAudioBytes.size());
@@ -67,12 +71,22 @@ public:
         auto normalized = AudioNormalizer::normalize(decoded.channels, decoded.sampleRate);
         const size_t numSamples = normalized.numSamples;
 
-        // 4. Source Separation (Lead Vocal vs Accompaniment)
+        // 4. Source Audio Pre-Conditioning & Denoising (Stage 1)
+        if (enableCleanup_) {
+            AudioCleaner::cleanStereo(normalized.channels, 44100.0);
+        }
+
+        // 5. Source Separation (Lead Vocal vs Accompaniment)
         StemSeparator separator;
         auto sepRes = separator.separate(normalized.channels);
         leadVocal_ = sepRes.leadVocal;
 
-        // 5. Harmony & Beat Grid Analysis
+        // 6. Vocal Stem Polish & De-bleed (Stage 3)
+        if (enableCleanup_) {
+            AudioCleaner::polishVocalStem(leadVocal_, 44100.0);
+        }
+
+        // 7. Harmony & Beat Grid Analysis
         analysisReport_ = MusicAnalyzer::analyze(normalized.channels);
 
         // 6. Reggae Arrangement & Dual Variation Synthesis
@@ -137,6 +151,8 @@ public:
     [[nodiscard]] DualTransportSource& getTransport() noexcept { return transport_; }
     [[nodiscard]] DubEffectsProcessor& getDubProcessor() noexcept { return dubProcessor_; }
     [[nodiscard]] bool isReady() const noexcept { return isReady_; }
+    [[nodiscard]] bool isCleanupEnabled() const noexcept { return enableCleanup_; }
+    void setCleanupEnabled(bool enabled) noexcept { enableCleanup_ = enabled; }
 
     /**
      * @brief Process real-time block for output audio device callback.
@@ -149,6 +165,7 @@ public:
 
 private:
     bool isReady_ = false;
+    bool enableCleanup_ = true;
     contracts::TuningParameters currentTuning_;
     AnalysisReport analysisReport_;
     ArrangementResult arrangement_;
