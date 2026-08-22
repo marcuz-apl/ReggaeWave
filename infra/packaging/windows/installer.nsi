@@ -6,10 +6,9 @@
 !define PRODUCT_WEB_SITE "https://github.com/marcuz-apl/ReggaeWave"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\ReggaeWave.exe"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
-!define PRODUCT_UNINST_ROOT_KEY "HKLM"
 
 !ifndef PRODUCT_VERSION
-  !define PRODUCT_VERSION "1.3.0"
+  !define PRODUCT_VERSION "1.3.3-2608221"
 !endif
 
 !ifndef EXE_SOURCE
@@ -24,14 +23,22 @@
   !define ICON_FILE "..\assets\reggaewave.ico"
 !endif
 
+; MultiUser Configuration for Dual Installation Tracks (All Users / Current User)
+!define MULTIUSER_EXECUTIONLEVEL Highest
+!define MULTIUSER_MUI
+!define MULTIUSER_INSTALLMODE_COMMANDLINE
+!define MULTIUSER_INSTALLMODE_DEFAULT_ALLUSERS
+!define MULTIUSER_INSTALLMODE_INSTDIR "Alfazen-Inc\ReggaeWave"
+!define MULTIUSER_INSTALLMODE_INSTDIR_REGKEY "${PRODUCT_UNINST_KEY}"
+!define MULTIUSER_USE_PROGRAMFILES64
+
+!include "MultiUser.nsh"
+!include "MUI2.nsh"
+!include "x64.nsh"
+
 ; Compressor settings
 SetCompressor /SOLID lzma
 Unicode true
-RequestExecutionLevel admin
-
-; Modern UI
-!include "MUI2.nsh"
-!include "x64.nsh"
 
 ; Interface Settings
 !define MUI_ABORTWARNING
@@ -40,6 +47,7 @@ RequestExecutionLevel admin
 
 ; Pages
 !insertmacro MUI_PAGE_WELCOME
+!insertmacro MULTIUSER_PAGE_INSTALLMODE
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !define MUI_FINISHPAGE_RUN "$INSTDIR\ReggaeWave.exe"
@@ -56,10 +64,16 @@ RequestExecutionLevel admin
 
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
 OutFile "${OUTPUT_DIR}\ReggaeWave-Setup.exe"
-InstallDir "$PROGRAMFILES64\ReggaeWave"
-InstallDirRegKey HKLM "${PRODUCT_DIR_REGKEY}" ""
 ShowInstDetails show
 ShowUnInstDetails show
+
+Function .onInit
+  !insertmacro MULTIUSER_INIT
+FunctionEnd
+
+Function un.onInit
+  !insertmacro MULTIUSER_UNINIT
+FunctionEnd
 
 Section "MainSection" SEC01
   SetOutPath "$INSTDIR"
@@ -67,36 +81,38 @@ Section "MainSection" SEC01
 
   File "/oname=ReggaeWave.exe" "${EXE_SOURCE}"
 
-  ; Create Shortcuts
-  CreateDirectory "$SMPROGRAMS\ReggaeWave"
-  CreateShortcut "$SMPROGRAMS\ReggaeWave\ReggaeWave.lnk" "$INSTDIR\ReggaeWave.exe"
-  CreateShortcut "$SMPROGRAMS\ReggaeWave\Uninstall ReggaeWave.lnk" "$INSTDIR\uninstall.exe"
+  ; Create Shortcuts in Alfazen-Inc folder
+  CreateDirectory "$SMPROGRAMS\Alfazen-Inc\ReggaeWave"
+  CreateShortcut "$SMPROGRAMS\Alfazen-Inc\ReggaeWave\ReggaeWave.lnk" "$INSTDIR\ReggaeWave.exe"
+  CreateShortcut "$SMPROGRAMS\Alfazen-Inc\ReggaeWave\Uninstall ReggaeWave.lnk" "$INSTDIR\uninstall.exe"
   CreateShortcut "$DESKTOP\ReggaeWave.lnk" "$INSTDIR\ReggaeWave.exe"
 
   ; Write Uninstaller
   WriteUninstaller "$INSTDIR\uninstall.exe"
 
-  ; Registry Keys
-  WriteRegStr HKLM "${PRODUCT_DIR_REGKEY}" "" "$INSTDIR\ReggaeWave.exe"
-  WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayName" "$(^Name)"
-  WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "UninstallString" "$INSTDIR\uninstall.exe"
-  WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayIcon" "$INSTDIR\ReggaeWave.exe"
-  WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayVersion" "${PRODUCT_VERSION}"
-  WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "URLInfoAbout" "${PRODUCT_WEB_SITE}"
-  WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"
+  ; Registry Keys (SHCTX switches automatically between HKLM for All Users and HKCU for Current User)
+  WriteRegStr SHCTX "${PRODUCT_DIR_REGKEY}" "" "$INSTDIR\ReggaeWave.exe"
+  WriteRegStr SHCTX "${PRODUCT_UNINST_KEY}" "DisplayName" "$(^Name)"
+  WriteRegStr SHCTX "${PRODUCT_UNINST_KEY}" "UninstallString" "$INSTDIR\uninstall.exe"
+  WriteRegStr SHCTX "${PRODUCT_UNINST_KEY}" "DisplayIcon" "$INSTDIR\ReggaeWave.exe"
+  WriteRegStr SHCTX "${PRODUCT_UNINST_KEY}" "DisplayVersion" "${PRODUCT_VERSION}"
+  WriteRegStr SHCTX "${PRODUCT_UNINST_KEY}" "URLInfoAbout" "${PRODUCT_WEB_SITE}"
+  WriteRegStr SHCTX "${PRODUCT_UNINST_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"
 SectionEnd
 
 Section Uninstall
   Delete "$DESKTOP\ReggaeWave.lnk"
-  Delete "$SMPROGRAMS\ReggaeWave\ReggaeWave.lnk"
-  Delete "$SMPROGRAMS\ReggaeWave\Uninstall ReggaeWave.lnk"
-  RMDir "$SMPROGRAMS\ReggaeWave"
+  Delete "$SMPROGRAMS\Alfazen-Inc\ReggaeWave\ReggaeWave.lnk"
+  Delete "$SMPROGRAMS\Alfazen-Inc\ReggaeWave\Uninstall ReggaeWave.lnk"
+  RMDir "$SMPROGRAMS\Alfazen-Inc\ReggaeWave"
+  RMDir "$SMPROGRAMS\Alfazen-Inc"
 
   Delete "$INSTDIR\ReggaeWave.exe"
   Delete "$INSTDIR\uninstall.exe"
   RMDir "$INSTDIR"
+  RMDir "$INSTDIR\.."
 
-  DeleteRegKey ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}"
-  DeleteRegKey HKLM "${PRODUCT_DIR_REGKEY}"
+  DeleteRegKey SHCTX "${PRODUCT_UNINST_KEY}"
+  DeleteRegKey SHCTX "${PRODUCT_DIR_REGKEY}"
   SetAutoClose true
 SectionEnd

@@ -18,22 +18,30 @@ jobs:
         include:
           - name: Linux (x86_64)
             os: ubuntu-24.04
-            artifact_name: ReggaeWave-Linux-Packages
+            platform_id: Linux-x86_64
             upload_path: dist/packages/*
 
           - name: macOS (Universal)
             os: macos-latest
-            artifact_name: ReggaeWave-macOS-Universal
-            upload_path: dist/ReggaeWave.dmg
+            platform_id: macOS-Universal
+            upload_path: dist/*
 
           - name: Windows (x64)
             os: windows-latest
-            artifact_name: ReggaeWave-Windows-x64
+            platform_id: Windows-x64
             upload_path: dist/*
 
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
+
+      - name: Extract Version Identifier
+        id: get_version
+        shell: bash
+        run: |
+          APP_VER=$(cat VERSION | tr -d '\r\n')
+          echo "APP_VER=${APP_VER}" >> $GITHUB_ENV
+          echo "APP_VER=${APP_VER}" >> $GITHUB_OUTPUT
 
       - name: Setup Swap Space (Linux)
         if: runner.os == 'Linux'
@@ -80,7 +88,7 @@ jobs:
         run: |
           cmake --build build --config Release --parallel 2
 
-      - name: Run Test Suite (55 Tests)
+      - name: Run Test Suite (58 Tests)
         run: |
           ctest --test-dir build -C Release --output-on-failure
 
@@ -90,7 +98,7 @@ jobs:
           cd build
           cpack -G "DEB;RPM"
           mkdir -p ../dist/packages
-          cp *.deb *.rpm ../dist/packages/
+          cp *.deb *.rpm ../dist/packages/ 2>/dev/null || true
 
       - name: Package macOS DMG Installer
         if: runner.os == 'macOS'
@@ -99,12 +107,12 @@ jobs:
           APP_PATH=$(find build -name "ReggaeWave.app" -type d | head -n 1)
           if [ -n "$APP_PATH" ]; then
             echo "Creating macOS DMG installer from $APP_PATH..."
-            hdiutil create -volname "ReggaeWave" -srcfolder "$APP_PATH" -ov -format UDZO dist/ReggaeWave.dmg
+            hdiutil create -volname "ReggaeWave" -srcfolder "$APP_PATH" -ov -format UDZO "dist/ReggaeWave-${APP_VER}-macOS-Universal.dmg"
           else
             echo "Error: ReggaeWave.app not found" && exit 1
           fi
 
-      - name: Package Windows Executable & Installer
+      - name: Package Windows Executable & NSIS Installer
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
@@ -127,28 +135,23 @@ jobs:
               }
             }
             
-            # Read version from VERSION file
-            $ver = (Get-Content VERSION -First 1).Trim()
-            $semver = ($ver -replace '-.*$', '')
-            
+            $appVer = $env:APP_VER
             $repoRoot = (Get-Location).Path
             $distDir = Join-Path $repoRoot "dist"
             $iconPath = Join-Path $repoRoot "infra\packaging\assets\reggaewave.ico"
             $nsiScript = Join-Path $repoRoot "infra\packaging\windows\installer.nsi"
             $exePath = $exe.FullName
 
-            Write-Host "Compiling NSIS installer (version $semver) with $makensisCmd..."
-            Write-Host "EXE: $exePath"
-            Write-Host "Icon: $iconPath"
-            Write-Host "Output: $distDir"
-            & $makensisCmd -DPRODUCT_VERSION=$semver -DEXE_SOURCE="$exePath" -DICON_FILE="$iconPath" -DOUTPUT_DIR="$distDir" "$nsiScript"
+            Write-Host "Compiling NSIS installer (version $appVer) with $makensisCmd..."
+            & $makensisCmd -DPRODUCT_VERSION="$appVer" -DEXE_SOURCE="$exePath" -DICON_FILE="$iconPath" -DOUTPUT_DIR="$distDir" "$nsiScript"
             if ($LASTEXITCODE -ne 0) {
               Write-Error "makensis failed with exit code $LASTEXITCODE"
               exit 1
             }
             
             if (Test-Path "$distDir\ReggaeWave-Setup.exe") {
-              Write-Host "Successfully generated $distDir\ReggaeWave-Setup.exe"
+              Move-Item -Path "$distDir\ReggaeWave-Setup.exe" -Destination "$distDir\ReggaeWave-$appVer-Setup.exe" -Force
+              Write-Host "Successfully generated $distDir\ReggaeWave-$appVer-Setup.exe"
             } else {
               Write-Error "ReggaeWave-Setup.exe missing in $distDir"
               exit 1
@@ -161,7 +164,7 @@ jobs:
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact_name }}
+          name: ReggaeWave-${{ env.APP_VER }}-${{ matrix.platform_id }}
           path: ${{ matrix.upload_path }}
           retention-days: 30
 
@@ -176,27 +179,14 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Download Linux Packages
+      - name: Download All Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: ReggaeWave-Linux-Packages
           path: release_assets
-
-      - name: Download macOS Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ReggaeWave-macOS-Universal
-          path: release_assets
-
-      - name: Download Windows Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ReggaeWave-Windows-x64
-          path: release_assets
+          pattern: ReggaeWave-*
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: release_assets/**/*
           generate_release_notes: true
-
