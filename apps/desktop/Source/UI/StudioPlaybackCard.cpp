@@ -71,8 +71,8 @@ StudioPlaybackCard::StudioPlaybackCard(OnPlayToggled onPlay,
     };
     addAndMakeVisible(varBButton_);
 
-    addAndMakeVisible(tuningPanel_);
     addAndMakeVisible(waveformView_);
+    addAndMakeVisible(tuningPanel_);
 }
 
 void StudioPlaybackCard::setIsPlaying(bool isPlaying) {
@@ -109,26 +109,33 @@ void StudioPlaybackCard::paint(juce::Graphics& g) {
 void StudioPlaybackCard::resized() {
     auto area = getLocalBounds().reduced(14);
 
-    // Title line
+    // 1. Title line
     cardTitleLabel_.setBounds(area.removeFromTop(20));
     area.removeFromTop(8);
 
-    // Left controls column (width 340) vs Right Visualizer (remaining)
-    auto leftCol = area.removeFromLeft(340);
-    area.removeFromLeft(16);
-    auto rightCol = area;
+    // 2. Bottom Control Deck (height 94px)
+    auto bottomDeck = area.removeFromBottom(94);
+    area.removeFromBottom(10);
 
-    // Left Column Layout:
-    // Row 1: Transport buttons
-    auto transportRow = leftCol.removeFromTop(36);
-    playButton_.setBounds(transportRow.removeFromLeft(120));
-    transportRow.removeFromLeft(8);
-    rewindButton_.setBounds(transportRow.removeFromLeft(90));
+    // 3. Top Full-Width Panoramic Visualizer (takes all remaining height and width!)
+    waveformView_.setBounds(area);
 
-    leftCol.removeFromTop(8);
+    // 4. Layout Bottom Deck:
+    // Left Section: Transport + 3-Way Switchers (width ~390px)
+    int leftWidth = std::min(400, bottomDeck.getWidth() / 2);
+    auto leftSection = bottomDeck.removeFromLeft(leftWidth);
+    bottomDeck.removeFromLeft(14);
 
-    // Row 2: 3-Way Variation & Original Switchers
-    auto varRow = leftCol.removeFromTop(30);
+    // Left Row 1: Transport buttons (36px height)
+    auto transportRow = leftSection.removeFromTop(38);
+    playButton_.setBounds(transportRow.removeFromLeft(130));
+    transportRow.removeFromLeft(10);
+    rewindButton_.setBounds(transportRow.removeFromLeft(100));
+
+    leftSection.removeFromTop(8);
+
+    // Left Row 2: 3-way Switchers (34px height)
+    auto varRow = leftSection.removeFromTop(34);
     int btnWidth = (varRow.getWidth() - 12) / 3;
     origButton_.setBounds(varRow.removeFromLeft(btnWidth));
     varRow.removeFromLeft(6);
@@ -136,13 +143,8 @@ void StudioPlaybackCard::resized() {
     varRow.removeFromLeft(6);
     varBButton_.setBounds(varRow);
 
-    leftCol.removeFromTop(10);
-
-    // Row 3: Rotary Dials
-    tuningPanel_.setBounds(leftCol);
-
-    // Right Column Layout: Visualizer
-    waveformView_.setBounds(rightCol);
+    // Right Section: 3 Rotary Dials Panel (spread horizontally across remaining width)
+    tuningPanel_.setBounds(bottomDeck);
 }
 
 } // namespace reggaewave::ui
