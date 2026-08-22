@@ -86,7 +86,7 @@ target_link_libraries(ReggaeWave PRIVATE
     juce::juce_audio_utils
 )
 
-if(UNIX AND NOT APPLE)
+if(UNIX AND NOT APPLE AND NOT (CMAKE_SYSTEM_NAME MATCHES "Android|iOS"))
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(GUI_DEPS REQUIRED gtk+-3.0 alsa)
     target_include_directories(ReggaeWave PRIVATE ${GUI_DEPS_INCLUDE_DIRS})

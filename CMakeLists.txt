@@ -45,7 +45,7 @@ if(REGGAEWAVE_BUILD_DESKTOP AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/apps/desktop
 endif()
 
 # Mobile application GUI target (iOS / Android / Mobile Simulator)
-option(REGGAEWAVE_BUILD_MOBILE "Build ReggaeWave mobile application" ON)
+option(REGGAEWAVE_BUILD_MOBILE "Build ReggaeWave mobile application" OFF)
 if(REGGAEWAVE_BUILD_MOBILE AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/apps/mobile/CMakeLists.txt")
     add_subdirectory(apps/mobile)
 endif()
