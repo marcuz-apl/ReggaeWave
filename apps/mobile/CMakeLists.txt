@@ -95,7 +95,11 @@ target_link_libraries(ReggaeWaveMobile PRIVATE
     juce::juce_audio_utils
 )
 
-if(UNIX AND NOT APPLE AND NOT ANDROID)
+if(APPLE)
+    set_source_files_properties(Source/Platform/NativeMobileSharing.cpp PROPERTIES LANGUAGE OBJCXX)
+endif()
+
+if(UNIX AND NOT APPLE AND NOT (CMAKE_SYSTEM_NAME MATCHES "Android|iOS"))
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(GUI_DEPS REQUIRED gtk+-3.0 alsa)
     target_include_directories(ReggaeWaveMobile PRIVATE ${GUI_DEPS_INCLUDE_DIRS})

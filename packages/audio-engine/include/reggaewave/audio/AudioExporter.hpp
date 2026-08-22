@@ -62,6 +62,15 @@ inline int executeCommandSilently(const std::string& command) {
 }
 
 } // namespace reggaewave::audio::detail
+#elif defined(__ANDROID__) || (defined(__APPLE__) && TARGET_OS_IPHONE)
+namespace reggaewave::audio::detail {
+
+inline int executeCommandSilently(const std::string& command) {
+    (void)command;
+    return -1; // Mobile sandbox fallback
+}
+
+} // namespace reggaewave::audio::detail
 #else
 namespace reggaewave::audio::detail {
 
