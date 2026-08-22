@@ -294,7 +294,7 @@ jobs:
             -DREGGAEWAVE_BUILD_DESKTOP=OFF \
             -DREGGAEWAVE_BUILD_TESTS=OFF \
             -DREGGAEWAVE_BUILD_MOBILE=ON
-          cmake --build build-android --config Release -v
+          cmake --build build-android --config Release --target ReggaeWaveMobile -v
 
       - name: Package Android Distribution
         run: |

@@ -168,10 +168,17 @@ public:
     static std::vector<uint8_t> encodeMp3(const std::vector<std::vector<float>>& stereoChannels, double sampleRate = 44100.0) {
         auto wavBytes = encodeWav24Bit(stereoChannels, sampleRate);
         
+        std::string tempWav;
+        std::string tempMp3;
+#if defined(__ANDROID__)
+        tempWav = "/data/local/tmp/reggaewave_encode_tmp.wav";
+        tempMp3 = "/data/local/tmp/reggaewave_encode_tmp.mp3";
+#else
         std::error_code ec;
         auto tempDir = std::filesystem::temp_directory_path(ec);
-        std::string tempWav = (tempDir / "reggaewave_encode_tmp.wav").string();
-        std::string tempMp3 = (tempDir / "reggaewave_encode_tmp.mp3").string();
+        tempWav = (tempDir / "reggaewave_encode_tmp.wav").string();
+        tempMp3 = (tempDir / "reggaewave_encode_tmp.mp3").string();
+#endif
 
         {
             std::ofstream f(tempWav, std::ios::binary);
