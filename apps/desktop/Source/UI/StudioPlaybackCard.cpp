@@ -109,33 +109,36 @@ void StudioPlaybackCard::paint(juce::Graphics& g) {
 void StudioPlaybackCard::resized() {
     auto area = getLocalBounds().reduced(14);
 
-    // 1. Title line
+    // 1. Title line (20px)
     cardTitleLabel_.setBounds(area.removeFromTop(20));
     area.removeFromTop(8);
 
-    // 2. Bottom Control Deck (height 94px)
-    auto bottomDeck = area.removeFromBottom(94);
+    // 2. Bottom Control Deck - allocated generous 140px height for complete vertical breathing room!
+    auto bottomDeck = area.removeFromBottom(140);
     area.removeFromBottom(10);
 
-    // 3. Top Full-Width Panoramic Visualizer (takes all remaining height and width!)
+    // 3. Top Panoramic Visualizer (fills the remaining clean ~140-160px height)
     waveformView_.setBounds(area);
 
     // 4. Layout Bottom Deck:
-    // Left Section: Transport + 3-Way Switchers (width ~390px)
-    int leftWidth = std::min(400, bottomDeck.getWidth() / 2);
+    // Left Section: Transport + 3-Way Switchers (width ~400px)
+    int leftWidth = std::min(410, bottomDeck.getWidth() / 2);
     auto leftSection = bottomDeck.removeFromLeft(leftWidth);
-    bottomDeck.removeFromLeft(14);
+    bottomDeck.removeFromLeft(16);
 
-    // Left Row 1: Transport buttons (36px height)
-    auto transportRow = leftSection.removeFromTop(38);
-    playButton_.setBounds(transportRow.removeFromLeft(130));
+    // Left Section Layout: vertical spacing
+    auto leftContent = leftSection.reduced(4, 8);
+
+    // Row 1: Transport buttons (40px ergonomic height)
+    auto transportRow = leftContent.removeFromTop(40);
+    playButton_.setBounds(transportRow.removeFromLeft(140));
     transportRow.removeFromLeft(10);
     rewindButton_.setBounds(transportRow.removeFromLeft(100));
 
-    leftSection.removeFromTop(8);
+    leftContent.removeFromTop(16);
 
-    // Left Row 2: 3-way Switchers (34px height)
-    auto varRow = leftSection.removeFromTop(34);
+    // Row 2: 3-way Switchers (36px height)
+    auto varRow = leftContent.removeFromTop(36);
     int btnWidth = (varRow.getWidth() - 12) / 3;
     origButton_.setBounds(varRow.removeFromLeft(btnWidth));
     varRow.removeFromLeft(6);
@@ -143,7 +146,7 @@ void StudioPlaybackCard::resized() {
     varRow.removeFromLeft(6);
     varBButton_.setBounds(varRow);
 
-    // Right Section: 3 Rotary Dials Panel (spread horizontally across remaining width)
+    // Right Section: 3 Rotary Dials Panel (spread with ample vertical and horizontal space)
     tuningPanel_.setBounds(bottomDeck);
 }
 
