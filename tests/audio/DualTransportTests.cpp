@@ -5,16 +5,18 @@
 
 using namespace reggaewave::audio;
 
-TEST_CASE("DualTransportSource synchronized playback and variation switching", "[audio][transport]") {
+TEST_CASE("DualTransportSource synchronized playback and 3-way variation switching", "[audio][transport]") {
     DualTransportSource transport;
     const double sampleRate = 44100.0;
     transport.prepare(sampleRate, 2);
 
     const int numSamples = 1000;
+    std::vector<std::vector<float>> orig = {std::vector<float>(numSamples, 0.3f), std::vector<float>(numSamples, 0.3f)};
     std::vector<std::vector<float>> varA = {std::vector<float>(numSamples, 0.4f), std::vector<float>(numSamples, 0.4f)};
     std::vector<std::vector<float>> varB = {std::vector<float>(numSamples, 0.8f), std::vector<float>(numSamples, 0.8f)};
     std::vector<std::vector<float>> vocal = {std::vector<float>(numSamples, 0.2f), std::vector<float>(numSamples, 0.2f)};
 
+    transport.loadOriginal(orig);
     transport.loadVariationA(varA);
     transport.loadVariationB(varB);
     transport.loadLeadVocal(vocal);
@@ -33,9 +35,13 @@ TEST_CASE("DualTransportSource synchronized playback and variation switching", "
 
     // Switch to Variation B
     transport.setActiveVariation(ActiveVariation::VariationB);
-    // Render through crossfade...
     transport.renderNextBlock(outChannels.data(), 2, 100);
     REQUIRE(transport.getPlayheadSample() == 200);
+
+    // Switch to Pure Original Source
+    transport.setActiveVariation(ActiveVariation::Original);
+    transport.renderNextBlock(outChannels.data(), 2, 100);
+    REQUIRE(transport.getPlayheadSample() == 300);
 
     // Set playhead position
     transport.setPlayheadSample(500);

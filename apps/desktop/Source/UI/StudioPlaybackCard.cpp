@@ -13,12 +13,12 @@ StudioPlaybackCard::StudioPlaybackCard(OnPlayToggled onPlay,
     , tuningPanel_(std::move(onTuningChanged))
     , waveformView_(std::move(onSeek))
 {
-    cardTitleLabel_.setText("2. Riddim & Dub Studio (A/B Variations & DSP)", juce::dontSendNotification);
+    cardTitleLabel_.setText("2. Riddim & Dub Studio (3-Way A/B/Original Audition & DSP)", juce::dontSendNotification);
     cardTitleLabel_.setFont(juce::FontOptions(13.0f, juce::Font::bold));
     cardTitleLabel_.setColour(juce::Label::textColourId, ReggaeWaveTheme::accentGold);
     addAndMakeVisible(cardTitleLabel_);
 
-    // Transport buttons with clean text (no messy Unicode)
+    // Transport buttons
     playButton_.setButtonText("Play");
     playButton_.setColour(juce::TextButton::buttonColourId, ReggaeWaveTheme::accentGold);
     playButton_.setColour(juce::TextButton::textColourOffId, ReggaeWaveTheme::bgDark);
@@ -31,13 +31,27 @@ StudioPlaybackCard::StudioPlaybackCard(OnPlayToggled onPlay,
     rewindButton_.onClick = [this]() { if (onRewind_) onRewind_(); };
     addAndMakeVisible(rewindButton_);
 
-    // Single Authoritative Variation Switchers
+    // 3-Way Authoritative Switchers (Original vs Variation A vs Variation B)
+    origButton_.setButtonText("Original");
+    origButton_.setClickingTogglesState(true);
+    origButton_.setRadioGroupId(3001);
+    origButton_.setToggleState(false, juce::dontSendNotification);
+    origButton_.setColour(juce::TextButton::buttonColourId, ReggaeWaveTheme::bgElevated);
+    origButton_.setColour(juce::TextButton::buttonOnColourId, ReggaeWaveTheme::textPrimary);
+    origButton_.setColour(juce::TextButton::textColourOnId, ReggaeWaveTheme::bgDark);
+    origButton_.onClick = [this, onVarChanged]() {
+        if (onVarChanged) onVarChanged(audio::ActiveVariation::Original);
+        waveformView_.setActiveVariation(audio::ActiveVariation::Original);
+    };
+    addAndMakeVisible(origButton_);
+
     varAButton_.setButtonText("Var A: One-Drop");
     varAButton_.setClickingTogglesState(true);
     varAButton_.setRadioGroupId(3001);
     varAButton_.setToggleState(true, juce::dontSendNotification);
     varAButton_.setColour(juce::TextButton::buttonColourId, ReggaeWaveTheme::bgElevated);
     varAButton_.setColour(juce::TextButton::buttonOnColourId, ReggaeWaveTheme::accentGold);
+    varAButton_.setColour(juce::TextButton::textColourOnId, ReggaeWaveTheme::bgDark);
     varAButton_.onClick = [this, onVarChanged]() {
         if (onVarChanged) onVarChanged(audio::ActiveVariation::VariationA);
         waveformView_.setActiveVariation(audio::ActiveVariation::VariationA);
@@ -50,6 +64,7 @@ StudioPlaybackCard::StudioPlaybackCard(OnPlayToggled onPlay,
     varBButton_.setToggleState(false, juce::dontSendNotification);
     varBButton_.setColour(juce::TextButton::buttonColourId, ReggaeWaveTheme::bgElevated);
     varBButton_.setColour(juce::TextButton::buttonOnColourId, ReggaeWaveTheme::accentGreen);
+    varBButton_.setColour(juce::TextButton::textColourOnId, ReggaeWaveTheme::bgDark);
     varBButton_.onClick = [this, onVarChanged]() {
         if (onVarChanged) onVarChanged(audio::ActiveVariation::VariationB);
         waveformView_.setActiveVariation(audio::ActiveVariation::VariationB);
@@ -74,6 +89,7 @@ void StudioPlaybackCard::setWaveformData(std::vector<float> peaks) {
 }
 
 void StudioPlaybackCard::setActiveVariation(audio::ActiveVariation variation) {
+    origButton_.setToggleState(variation == audio::ActiveVariation::Original, juce::dontSendNotification);
     varAButton_.setToggleState(variation == audio::ActiveVariation::VariationA, juce::dontSendNotification);
     varBButton_.setToggleState(variation == audio::ActiveVariation::VariationB, juce::dontSendNotification);
     waveformView_.setActiveVariation(variation);
@@ -97,8 +113,8 @@ void StudioPlaybackCard::resized() {
     cardTitleLabel_.setBounds(area.removeFromTop(20));
     area.removeFromTop(8);
 
-    // Left controls column (width 320) vs Right Visualizer (remaining)
-    auto leftCol = area.removeFromLeft(330);
+    // Left controls column (width 340) vs Right Visualizer (remaining)
+    auto leftCol = area.removeFromLeft(340);
     area.removeFromLeft(16);
     auto rightCol = area;
 
@@ -111,10 +127,13 @@ void StudioPlaybackCard::resized() {
 
     leftCol.removeFromTop(8);
 
-    // Row 2: Variation Switchers
+    // Row 2: 3-Way Variation & Original Switchers
     auto varRow = leftCol.removeFromTop(30);
-    varAButton_.setBounds(varRow.removeFromLeft(155));
-    varRow.removeFromLeft(8);
+    int btnWidth = (varRow.getWidth() - 12) / 3;
+    origButton_.setBounds(varRow.removeFromLeft(btnWidth));
+    varRow.removeFromLeft(6);
+    varAButton_.setBounds(varRow.removeFromLeft(btnWidth));
+    varRow.removeFromLeft(6);
     varBButton_.setBounds(varRow);
 
     leftCol.removeFromTop(10);

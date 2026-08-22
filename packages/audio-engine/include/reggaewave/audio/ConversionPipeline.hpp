@@ -93,8 +93,9 @@ public:
         currentTuning_ = tuningParams;
         arrangement_ = ReggaeArranger::arrange(numSamples, analysisReport_, currentTuning_.getReggaeIntensity());
 
-        // 7. Load Audio Transport & Configure DSP
+        // 8. Load Audio Transport & Configure DSP
         transport_.prepare(44100.0, 2);
+        transport_.loadOriginal(normalized.channels);
         transport_.loadVariationA(arrangement_.variationA);
         transport_.loadVariationB(arrangement_.variationB);
         transport_.loadLeadVocal(leadVocal_);

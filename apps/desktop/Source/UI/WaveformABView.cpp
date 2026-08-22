@@ -122,8 +122,13 @@ void WaveformABView::setWaveformData(std::vector<float> peaks) {
 
 void WaveformABView::setActiveVariation(audio::ActiveVariation variation) {
     activeVariation_ = variation;
-    scrubSlider_.setColour(juce::Slider::trackColourId,
-        (variation == audio::ActiveVariation::VariationA) ? ReggaeWaveTheme::accentGold : ReggaeWaveTheme::accentGreen);
+    juce::Colour trackCol = ReggaeWaveTheme::accentGold;
+    if (variation == audio::ActiveVariation::Original) {
+        trackCol = ReggaeWaveTheme::textPrimary;
+    } else if (variation == audio::ActiveVariation::VariationB) {
+        trackCol = ReggaeWaveTheme::accentGreen;
+    }
+    scrubSlider_.setColour(juce::Slider::trackColourId, trackCol);
     repaint();
 }
 

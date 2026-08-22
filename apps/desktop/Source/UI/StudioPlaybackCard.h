@@ -47,7 +47,8 @@ private:
     juce::TextButton playButton_{"Play"};
     juce::TextButton rewindButton_{"Rewind"};
 
-    // Variation toggles
+    // Variation & Source toggles (3-way reference)
+    juce::TextButton origButton_{"Original Track"};
     juce::TextButton varAButton_{"Var A: One-Drop"};
     juce::TextButton varBButton_{"Var B: Steppers"};
 
