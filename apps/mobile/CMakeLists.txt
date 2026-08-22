@@ -16,19 +16,11 @@ juce_add_gui_app(ReggaeWaveMobile
     PRODUCT_NAME "ReggaeWave"
     VERSION "${REGGAEWAVE_VERSION_MAJOR}.${REGGAEWAVE_VERSION_MINOR}.${REGGAEWAVE_VERSION_PATCH}"
     COMPANY_NAME "Alfazen-Inc"
-    BUNDLE_IDENTIFIER "com.alfazen.reggaewave"
+    BUNDLE_ID "com.alfazen.reggaewave"
     DOCUMENT_BROWSER_ENABLED ON
     MICROPHONE_PERMISSION_ENABLED ON
     IPHONE_SCREEN_ORIENTATIONS UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown
     IPAD_SCREEN_ORIENTATIONS UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
-    ANDROID_ACTIVITY_NAME "com.alfazen.reggaewave.ReggaeWaveActivity"
-    ANDROID_MIN_SDK_VERSION 26
-    ANDROID_TARGET_SDK_VERSION 34
-    ANDROID_PERMISSIONS 
-        android.permission.READ_MEDIA_AUDIO 
-        android.permission.READ_EXTERNAL_STORAGE 
-        android.permission.WRITE_EXTERNAL_STORAGE 
-        android.permission.MODIFY_AUDIO_SETTINGS
     ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/Resources/reggaewave_512.png"
     ICON_SMALL "${CMAKE_CURRENT_SOURCE_DIR}/Resources/reggaewave_32.png"
 )
@@ -75,6 +67,8 @@ target_compile_definitions(ReggaeWaveMobile PRIVATE
     JUCE_USE_CURL=0
     JUCE_ALSA_MIDI=0
     JUCE_USE_ALSA_MIDI=0
+    JUCE_USE_ANDROID_OPENSLES=1
+    JUCE_USE_ANDROID_OBOE=0
     REGGAEWAVE_MOBILE=1
 )
 
