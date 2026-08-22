@@ -76,7 +76,7 @@ private:
     contracts::TuningParameters currentTuning_{70, 20, 0.0};
     double currentSampleRate_ = 44100.0;
     double currentDurationSecs_ = 0.0;
-    std::string currentTrackTitle_ = "Track";
+    juce::String currentTrackTitle_ = "Track";
     juce::File currentLoadedFile_;
     audio::ActiveVariation currentVariation_ = audio::ActiveVariation::VariationA;
 

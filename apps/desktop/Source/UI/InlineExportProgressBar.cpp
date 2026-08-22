@@ -13,7 +13,7 @@ InlineExportProgressBar::~InlineExportProgressBar() {
     stopTimer();
 }
 
-void InlineExportProgressBar::setProgress(float progress0To1, const std::string& stageText) {
+void InlineExportProgressBar::setProgress(float progress0To1, const juce::String& stageText) {
     targetProgress_ = std::clamp(progress0To1, 0.0f, 1.0f);
     stageText_ = stageText;
     if (targetProgress_ >= 1.0f) {
@@ -74,11 +74,11 @@ void InlineExportProgressBar::paint(juce::Graphics& g) {
     g.setColour(juce::Colours::white.withAlpha(0.2f));
     g.fillRoundedRectangle(fillArea.reduced(2.0f), bounds.getHeight() * 0.5f - 2.0f);
 
-    // Centered status text & percentage
+    // Centered status text & percentage (Preserving UTF-8 / Chinese characters)
     int percentInt = static_cast<int>(std::round(currentProgress_ * 100.0f));
     juce::String displayString = isComplete_
         ? "Export Complete! (100%)"
-        : juce::String(stageText_) + " (" + juce::String(percentInt) + "%)";
+        : (stageText_ + " (" + juce::String(percentInt) + "%)");
 
     g.setColour(ReggaeWaveTheme::textPrimary);
     g.setFont(juce::FontOptions(12.5f, juce::Font::bold));

@@ -4,28 +4,28 @@
 #include <reggaewave/audio/AudioExporter.hpp>
 #include "InlineExportProgressBar.h"
 #include <functional>
-#include <string>
 
 namespace reggaewave::ui {
 
 /**
  * @brief Dedicated Export Window with in-place progress bar overlapping the filename path area,
  * transitioning the "Save" button to "Done" upon completion.
+ * Fully supports Unicode / Chinese song titles without mojibake.
  */
 class ExportDialogModal : public juce::Component {
 public:
     using OnPerformExport = std::function<void(const juce::File& destination, audio::AudioExportFormat format, class ExportDialogModal*)>;
     using OnClose = std::function<void()>;
 
-    ExportDialogModal(const std::string& trackTitle,
+    ExportDialogModal(const juce::String& trackTitle,
                       audio::AudioExportFormat format,
                       OnPerformExport onPerformExport,
                       OnClose onClose);
     ~ExportDialogModal() override = default;
 
-    void updateProgress(float progress0To1, const std::string& stageText);
-    void setExportCompleted(const std::string& savedFilename);
-    void setExportError(const std::string& errorMessage);
+    void updateProgress(float progress0To1, const juce::String& stageText);
+    void setExportCompleted(const juce::String& savedFilename);
+    void setExportError(const juce::String& errorMessage);
 
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -34,7 +34,7 @@ private:
     void handleSaveClicked();
     void handleBrowseClicked();
 
-    std::string trackTitle_;
+    juce::String trackTitle_;
     audio::AudioExportFormat format_;
     OnPerformExport onPerformExport_;
     OnClose onClose_;

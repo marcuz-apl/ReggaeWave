@@ -307,13 +307,13 @@ void MainComponent::processImportedFile(const juce::File& file) {
     isPlaying_ = false;
     studioCard_.setIsPlaying(false);
     currentLoadedFile_ = file;
-    currentTrackTitle_ = file.getFileNameWithoutExtension().toStdString();
+    currentTrackTitle_ = file.getFileNameWithoutExtension();
     importCard_.setImportStatus("Transforming: " + file.getFileName().toStdString() + "...");
     repaint();
 
     try {
         // 1. Multi-format decode (WAV, M4A, MP3, FLAC)
-        auto decoded = audio::AudioDecoder::decodeAnyAudioFile(file.getFullPathName().toStdString());
+        auto decoded = audio::AudioDecoder::decodeAnyAudioFile(file.getFullPathName().toRawUTF8());
         currentDurationSecs_ = static_cast<double>(decoded.channels[0].size()) / decoded.sampleRate;
         
         // 2. Encode to PCM WAV for pipeline validator
@@ -324,7 +324,7 @@ void MainComponent::processImportedFile(const juce::File& file) {
         
         // 4. Run pipeline with 1-click source cleanup & denoise option
         bool enableCleanup = importCard_.isCleanupEnabled();
-        auto output = pipeline_.execute(wavBytes, attestation, currentTuning_, "project-desktop", currentTrackTitle_, enableCleanup);
+        auto output = pipeline_.execute(wavBytes, attestation, currentTuning_, "project-desktop", currentTrackTitle_.toRawUTF8(), enableCleanup);
         
         // 5. Update Waveform UI & Duration
         studioCard_.setDurationSeconds(currentDurationSecs_);
@@ -409,22 +409,19 @@ void MainComponent::handleExportRequested(audio::AudioExportFormat format, bool 
                     // Ensure parent directory exists
                     destFile.getParentDirectory().createDirectory();
 
-                    std::ofstream out(destFile.getFullPathName().toStdString(), std::ios::binary);
-                    if (!out.is_open()) {
-                        throw std::runtime_error("Could not open destination file for writing");
+                    // Safely write binary data using JUCE native wide-character file I/O (100% Unicode & Chinese safe)
+                    destFile.deleteFile();
+                    if (!destFile.replaceWithData(outputBytes.data(), outputBytes.size())) {
+                        throw std::runtime_error("Could not write destination file: " + destFile.getFileName().toStdString());
                     }
-                    out.write(reinterpret_cast<const char*>(outputBytes.data()), outputBytes.size());
-                    out.close();
 
                     // Also save copy into ./exports/ folder
                     auto exportsDir = juce::File::getCurrentWorkingDirectory().getChildFile("exports");
                     exportsDir.createDirectory();
                     auto workspaceCopy = exportsDir.getChildFile(destFile.getFileName());
                     if (workspaceCopy.getFullPathName() != destFile.getFullPathName()) {
-                        std::ofstream copyOut(workspaceCopy.getFullPathName().toStdString(), std::ios::binary);
-                        if (copyOut.is_open()) {
-                            copyOut.write(reinterpret_cast<const char*>(outputBytes.data()), outputBytes.size());
-                        }
+                        workspaceCopy.deleteFile();
+                        workspaceCopy.replaceWithData(outputBytes.data(), outputBytes.size());
                     }
 
                     // Export subtitles if requested
@@ -439,17 +436,14 @@ void MainComponent::handleExportRequested(audio::AudioExportFormat format, bool 
                         auto srtText = subMgr.formatSrt();
                         auto vttText = subMgr.formatVtt();
 
-                        auto srtFile = exportsDir.getChildFile(juce::String(currentTrackTitle_) + "_reggae_subtitles.srt");
-                        auto vttFile = exportsDir.getChildFile(juce::String(currentTrackTitle_) + "_reggae_subtitles.vtt");
+                        auto srtFile = exportsDir.getChildFile(currentTrackTitle_ + "_reggae_subtitles.srt");
+                        auto vttFile = exportsDir.getChildFile(currentTrackTitle_ + "_reggae_subtitles.vtt");
 
-                        std::ofstream srtOut(srtFile.getFullPathName().toStdString());
-                        if (srtOut.is_open()) srtOut << srtText;
-
-                        std::ofstream vttOut(vttFile.getFullPathName().toStdString());
-                        if (vttOut.is_open()) vttOut << vttText;
+                        srtFile.replaceWithText(juce::String::fromUTF8(srtText.c_str()));
+                        vttFile.replaceWithText(juce::String::fromUTF8(vttText.c_str()));
                     }
 
-                    modal->setExportCompleted(destFile.getFileName().toStdString());
+                    modal->setExportCompleted(destFile.getFileName());
                 } catch (const std::exception& ex) {
                     modal->setExportError(ex.what());
                 }

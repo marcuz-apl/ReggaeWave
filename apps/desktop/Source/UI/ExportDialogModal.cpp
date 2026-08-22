@@ -3,7 +3,7 @@
 
 namespace reggaewave::ui {
 
-ExportDialogModal::ExportDialogModal(const std::string& trackTitle,
+ExportDialogModal::ExportDialogModal(const juce::String& trackTitle,
                                      audio::AudioExportFormat format,
                                      OnPerformExport onPerformExport,
                                      OnClose onClose)
@@ -20,8 +20,8 @@ ExportDialogModal::ExportDialogModal(const std::string& trackTitle,
     titleLabel_.setColour(juce::Label::textColourId, ReggaeWaveTheme::accentGold);
     addAndMakeVisible(titleLabel_);
 
-    std::string ext = (format_ == audio::AudioExportFormat::Mp3_320Kbps) ? ".mp3" : ".wav";
-    std::string specText = (format_ == audio::AudioExportFormat::Mp3_320Kbps)
+    juce::String ext = (format_ == audio::AudioExportFormat::Mp3_320Kbps) ? ".mp3" : ".wav";
+    juce::String specText = (format_ == audio::AudioExportFormat::Mp3_320Kbps)
         ? "Format: MP3 • 320 kbps CBR • 44.1 kHz • -14.0 LUFS Integrated • -1.0 dBTP Ceiling"
         : "Format: WAV • 24-bit PCM • 44.1 kHz Stereo • -14.0 LUFS Integrated • -1.0 dBTP Ceiling";
 
@@ -38,7 +38,7 @@ ExportDialogModal::ExportDialogModal(const std::string& trackTitle,
     // 2. Default Path in exports/
     auto defaultExportFile = juce::File::getCurrentWorkingDirectory()
                                 .getChildFile("exports")
-                                .getChildFile(juce::String(trackTitle_) + "_reggae_master" + ext);
+                                .getChildFile(trackTitle_ + "_reggae_master" + ext);
 
     pathEditor_.setText(defaultExportFile.getFullPathName());
     pathEditor_.setFont(juce::FontOptions(13.0f));
@@ -77,7 +77,7 @@ ExportDialogModal::ExportDialogModal(const std::string& trackTitle,
 }
 
 void ExportDialogModal::handleBrowseClicked() {
-    std::string ext = (format_ == audio::AudioExportFormat::Mp3_320Kbps) ? "*.mp3" : "*.wav";
+    juce::String ext = (format_ == audio::AudioExportFormat::Mp3_320Kbps) ? "*.mp3" : "*.wav";
     auto currentFile = juce::File(pathEditor_.getText());
 
     fileChooser_ = std::make_unique<juce::FileChooser>(
@@ -123,14 +123,14 @@ void ExportDialogModal::handleSaveClicked() {
     }
 }
 
-void ExportDialogModal::updateProgress(float progress0To1, const std::string& stageText) {
+void ExportDialogModal::updateProgress(float progress0To1, const juce::String& stageText) {
     juce::MessageManager::callAsync([this, progress0To1, stageText]() {
         progressBar_.setProgress(progress0To1, stageText);
         repaint();
     });
 }
 
-void ExportDialogModal::setExportCompleted(const std::string& savedFilename) {
+void ExportDialogModal::setExportCompleted(const juce::String& savedFilename) {
     juce::MessageManager::callAsync([this, savedFilename]() {
         isDone_ = true;
         isExporting_ = false;
@@ -148,7 +148,7 @@ void ExportDialogModal::setExportCompleted(const std::string& savedFilename) {
     });
 }
 
-void ExportDialogModal::setExportError(const std::string& errorMessage) {
+void ExportDialogModal::setExportError(const juce::String& errorMessage) {
     juce::MessageManager::callAsync([this, errorMessage]() {
         isExporting_ = false;
         progressBar_.setProgress(1.0f, "Error: " + errorMessage);
@@ -161,47 +161,50 @@ void ExportDialogModal::setExportError(const std::string& errorMessage) {
 }
 
 void ExportDialogModal::paint(juce::Graphics& g) {
-    // Dimmed background
-    g.fillAll(juce::Colours::black.withAlpha(0.75f));
+    // 1. Semi-transparent backdrop overlay
+    g.fillAll(juce::Colours::black.withAlpha(0.65f));
 
-    // Centered modal card
-    auto cardArea = getLocalBounds().withSizeKeepingCentre(620, 270).toFloat();
+    // 2. Centered dialog box
+    auto bounds = getLocalBounds().toFloat();
+    auto dialogArea = bounds.withSizeKeepingCentre(540.0f, 240.0f);
+
     g.setColour(ReggaeWaveTheme::bgSurface);
-    g.fillRoundedRectangle(cardArea, 12.0f);
+    g.fillRoundedRectangle(dialogArea, 12.0f);
 
     g.setColour(ReggaeWaveTheme::bgElevated);
-    g.drawRoundedRectangle(cardArea, 12.0f, 1.5f);
+    g.drawRoundedRectangle(dialogArea, 12.0f, 1.5f);
 }
 
 void ExportDialogModal::resized() {
-    auto cardArea = getLocalBounds().withSizeKeepingCentre(620, 270).reduced(24);
+    auto bounds = getLocalBounds();
+    auto dialogArea = bounds.withSizeKeepingCentre(540, 240).reduced(24);
 
-    // 1. Top Title & Specs
-    titleLabel_.setBounds(cardArea.removeFromTop(28));
-    descriptionLabel_.setBounds(cardArea.removeFromTop(20));
-    cardArea.removeFromTop(12);
+    // Header
+    titleLabel_.setBounds(dialogArea.removeFromTop(26));
+    dialogArea.removeFromTop(4);
+    descriptionLabel_.setBounds(dialogArea.removeFromTop(18));
+    dialogArea.removeFromTop(18);
 
-    // 2. Action Buttons at bottom
-    auto btnRow = cardArea.removeFromBottom(38);
-    actionButton_.setBounds(btnRow.removeFromRight(120));
+    // Path Label
+    pathHeaderLabel_.setBounds(dialogArea.removeFromTop(18));
+    dialogArea.removeFromTop(6);
+
+    // Path Editor & Browse Button OR Progress Bar
+    auto pathRow = dialogArea.removeFromTop(36);
+    browseButton_.setBounds(pathRow.removeFromRight(90));
+    pathRow.removeFromRight(8);
+    pathEditor_.setBounds(pathRow);
+
+    // Progress bar perfectly overlaps the pathRow
+    progressBar_.setBounds(pathRow.getX(), pathRow.getY(), pathRow.getWidth() + 98, pathRow.getHeight());
+
+    dialogArea.removeFromTop(20);
+
+    // Action buttons at bottom right
+    auto btnRow = dialogArea.removeFromBottom(34);
+    actionButton_.setBounds(btnRow.removeFromRight(100));
     btnRow.removeFromRight(10);
-    cancelButton_.setBounds(btnRow.removeFromRight(100));
-
-    cardArea.removeFromBottom(14);
-
-    // 3. Middle Path / Progress Bar Area
-    pathHeaderLabel_.setBounds(cardArea.removeFromTop(20));
-    cardArea.removeFromTop(6);
-
-    auto pathRow = cardArea.removeFromTop(38);
-
-    // Path editor + browse button initially take pathRow
-    pathEditor_.setBounds(pathRow.removeFromLeft(pathRow.getWidth() - 90));
-    pathRow.removeFromLeft(8);
-    browseButton_.setBounds(pathRow);
-
-    // Progress bar overlaps the exact path editor bounds when visible!
-    progressBar_.setBounds(pathEditor_.getBounds().withRight(browseButton_.getRight()));
+    cancelButton_.setBounds(btnRow.removeFromRight(90));
 }
 
 } // namespace reggaewave::ui
