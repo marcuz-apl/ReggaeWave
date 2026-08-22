@@ -57,6 +57,8 @@ if(REGGAEWAVE_BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
-# Packaging Configuration
-include("${CMAKE_CURRENT_SOURCE_DIR}/infra/packaging/CPackConfig.cmake")
+# Packaging Configuration (Desktop only)
+if(REGGAEWAVE_BUILD_DESKTOP)
+    include("${CMAKE_CURRENT_SOURCE_DIR}/infra/packaging/CPackConfig.cmake")
+endif()
 

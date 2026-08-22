@@ -247,6 +247,7 @@ public:
             // Fall back to ffmpeg pipe transcoding
         }
 
+#if !defined(__ANDROID__) && !(defined(__APPLE__) && TARGET_OS_IPHONE)
         // 4. Transcode via ffmpeg to standard 44.1 kHz 16-bit stereo WAV in memory
 #if defined(_WIN32)
         std::string cmd = "ffmpeg -v quiet -i \"" + filePath + "\" -f wav -ac 2 -ar 44100 -c:a pcm_s16le - 2>nul";
@@ -271,6 +272,9 @@ public:
         }
 
         return decodeWavBytes(wavBuffer.data(), wavBuffer.size());
+#else
+        throw std::runtime_error("Could not decode audio file: " + filePath + ". Direct mobile decoding only supports PCM WAV / JUCE native formats.");
+#endif
     }
 
     /**
