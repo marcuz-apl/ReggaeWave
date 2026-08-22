@@ -267,12 +267,14 @@ jobs:
 
       - name: Configure and Compile Android ARM64
         run: |
-          if [ -n "$ANDROID_NDK_LATEST_HOME" ] && [ -d "$ANDROID_NDK_LATEST_HOME" ]; then
-            NDK_PATH="$ANDROID_NDK_LATEST_HOME"
-          elif [ -n "$ANDROID_NDK_HOME" ] && [ -d "$ANDROID_NDK_HOME" ]; then
+          if [ -n "$ANDROID_NDK_HOME" ] && [ -d "$ANDROID_NDK_HOME" ]; then
             NDK_PATH="$ANDROID_NDK_HOME"
           elif [ -n "$ANDROID_NDK_ROOT" ] && [ -d "$ANDROID_NDK_ROOT" ]; then
             NDK_PATH="$ANDROID_NDK_ROOT"
+          elif [ -n "$ANDROID_NDK_PATH" ] && [ -d "$ANDROID_NDK_PATH" ]; then
+            NDK_PATH="$ANDROID_NDK_PATH"
+          elif [ -n "$ANDROID_NDK_LATEST_HOME" ] && [ -d "$ANDROID_NDK_LATEST_HOME" ]; then
+            NDK_PATH="$ANDROID_NDK_LATEST_HOME"
           else
             NDK_PATH=$(find /usr/local/lib/android/sdk/ndk /opt/android/sdk/ndk -maxdepth 1 -mindepth 1 2>/dev/null | sort -V | tail -n 1)
           fi
