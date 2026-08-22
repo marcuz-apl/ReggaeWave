@@ -1,4 +1,5 @@
 #include "MobileMainComponent.h"
+#include "Platform/NativeMobileSharing.h"
 #include <reggaewave/audio/AudioDecoder.hpp>
 #include <reggaewave/audio/AudioExporter.hpp>
 #include <reggaewave/audio/SubtitleManager.hpp>
@@ -208,17 +209,14 @@ void MobileMainComponent::filesDropped(const juce::StringArray& files, int x, in
 }
 
 void MobileMainComponent::openFilePicker() {
-    importFileModal_ = std::make_unique<ui::ImportFileModal>(
+    NativeMobileSharing::openDocumentPicker(
         [this](const juce::File& file) {
             processImportedFile(file);
-            importFileModal_.reset();
         },
         [this]() {
-            importFileModal_.reset();
+            // Cancelled
         }
     );
-    importFileModal_->setBounds(getLocalBounds());
-    addAndMakeVisible(importFileModal_.get());
 }
 
 void MobileMainComponent::processImportedFile(const juce::File& file) {
@@ -369,6 +367,13 @@ void MobileMainComponent::handleExportRequested(audio::AudioExportFormat format,
                     }
 
                     modal->setExportCompleted(destFile.getFileName());
+
+                    // Present native mobile Share Sheet (AirDrop / Files / WhatsApp / Telegram)
+                    NativeMobileSharing::shareExportedFile(
+                        destFile,
+                        (fmt == audio::AudioExportFormat::Mp3_320Kbps) ? "audio/mpeg" : "audio/wav",
+                        "ReggaeWave Master - " + currentTrackTitle_
+                    );
                 } catch (const std::exception& ex) {
                     modal->setExportError(ex.what());
                 }

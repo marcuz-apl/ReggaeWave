@@ -39,6 +39,8 @@ target_sources(ReggaeWaveMobile PRIVATE
     Source/MobileMainWindow.cpp
     Source/MobileMainComponent.h
     Source/MobileMainComponent.cpp
+    Source/Platform/NativeMobileSharing.h
+    Source/Platform/NativeMobileSharing.cpp
     ${CMAKE_SOURCE_DIR}/apps/desktop/Source/UI/ReggaeWaveTheme.h
     ${CMAKE_SOURCE_DIR}/apps/desktop/Source/UI/ReggaeWaveTheme.cpp
     ${CMAKE_SOURCE_DIR}/apps/desktop/Source/UI/ReggaeWaveIcon.h

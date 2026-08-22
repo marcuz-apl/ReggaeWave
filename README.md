@@ -107,3 +107,4 @@ ctest --test-dir build -C Release --output-on-failure
 - **[Note 0002: Verification Walkthrough](docs/note-0002-walkthrough.md)** — End-to-end verification walkthrough.
 - **[Note 0003: Roadmap & Milestones](docs/note-0003-roadmap-and-milestones.md)** — Milestone delivery status.
 - **[Note 0004: Realtime DSP & Studio Architecture](docs/note-0004-desktop-studio-architecture-and-realtime-dsp.md)** — Deep dive into audio thread safety and device management.
+- **[Note 0005: Mobile Edition Architecture & Testing Guide](docs/note-0005-mobile-edition-architecture-testing-and-roadmap.md)** — First-time mobile developer guide, testing without store accounts, and Android/iOS architecture.
