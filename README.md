@@ -99,6 +99,11 @@ ctest --test-dir build -C Release --output-on-failure
 
 ## Documentation
 
-- **[Product Requirements Document (PRD)](docs/PRD.md)** — Source of truth for product goals, constraints, and tuning ranges.
-- **[ADR 0001: C++20 & JUCE 8 Architecture](docs/adr/0001-desktop-cpp-juce-architecture.md)** — Architecture decision record for the desktop platform.
-- **[Tech Notes Index](docs/tech-notes/README.md)** — Implementation plans and walkthrough technical notes.
+- **[Product Requirements Document (PRD)](docs/PRD.md)** — Definitive source of truth for product scope, 3-dial creative controls, and mastering specs.
+- **[Cultural Evaluation Rubric](docs/cultural-evaluation-rubric.md)** — Safeguarding authentic Jamaican living heritage across 5 acoustic dimensions.
+- **[Desktop & Offline Architecture Design](docs/spec-offline-desktop-architecture-design.md)** — Specification for the offline desktop workstation and DSP pipeline.
+- **[ADR 0001: Desktop C++20 & JUCE 8 Architecture](docs/adr-0001-desktop-cpp-juce-architecture.md)** — Architecture decision record.
+- **[Note 0001: Implementation Plan](docs/note-0001-implementation-plan.md)** — Technical milestones and module breakdown.
+- **[Note 0002: Verification Walkthrough](docs/note-0002-walkthrough.md)** — End-to-end verification walkthrough.
+- **[Note 0003: Roadmap & Milestones](docs/note-0003-roadmap-and-milestones.md)** — Milestone delivery status.
+- **[Note 0004: Realtime DSP & Studio Architecture](docs/note-0004-desktop-studio-architecture-and-realtime-dsp.md)** — Deep dive into audio thread safety and device management.
