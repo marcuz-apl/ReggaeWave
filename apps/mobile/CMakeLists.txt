@@ -99,6 +99,10 @@ if(APPLE)
     set_source_files_properties(Source/Platform/NativeMobileSharing.cpp PROPERTIES LANGUAGE OBJCXX)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Android")
+    target_link_libraries(ReggaeWaveMobile PRIVATE android log OpenSLES)
+endif()
+
 if(UNIX AND NOT APPLE AND NOT (CMAKE_SYSTEM_NAME MATCHES "Android|iOS"))
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(GUI_DEPS REQUIRED gtk+-3.0 alsa)
