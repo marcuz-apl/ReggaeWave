@@ -106,7 +106,8 @@ The differentiator is a narrow, culturally reviewed Reggae transformation pipeli
 - Training any model on user uploads
 - Public publishing, discovery feeds, likes, follows, or social remixing
 - Direct import from streaming services
-- Native iOS, Android, Windows, or macOS applications
+- Native iOS, Windows, or macOS applications
+- Android local testing and CI packaging are in scope for the approved packaging effort; Play Store distribution remains out of scope
 - Photorealistic or narrative generative video
 - Distribution to streaming platforms
 - Payments, subscriptions, or commercial licensing automation

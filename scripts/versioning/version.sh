@@ -68,6 +68,10 @@ validate_version() {
   core=$1
   build=$2
 
+  case "$core" in
+    v*) core=${core#v} ;;
+  esac
+
   IFS=.
   set -- $core
   IFS=$old_ifs
@@ -99,6 +103,7 @@ validate_version() {
   today_number=$(date_number "$today") || die "invalid current UTC date: $today"
   build_date_number=$(date_number "$build_date") || die "invalid build date: $build_date"
   [ "$build_date_number" -le "$today_number" ] || die "future-dated VERSION is not allowed: $current"
+  current="v$core-$build"
 }
 
 [ "$#" -eq 3 ] || die 'usage: version.sh validate|bump VERSION_FILE UTC_YYMMDD'
@@ -142,6 +147,6 @@ else
   next_counter=${counter_tail%"${counter_tail#?}"}
 fi
 
-next_version="$next_major.$next_minor.$next_patch-$current_utc_date$next_counter"
+next_version="v$next_major.$next_minor.$next_patch-$current_utc_date$next_counter"
 printf '%s\n' "$next_version" > "$version_path"
 printf '%s\n' "$next_version"
