@@ -1,3 +1,9 @@
 # Projucer emits these generated files with a trailing blank line.
 apps/mobile/Builds/Android/app/build.gradle whitespace=-blank-at-eof
 apps/mobile/Builds/Android/gradle/wrapper/LICENSE-for-gradlewrapper.txt whitespace=-blank-at-eof
+
+# Unix entrypoints must retain LF endings on Windows checkouts and CI runners.
+apps/mobile/Builds/Android/gradlew text eol=lf
+tests/android/*.sh text eol=lf
+.githooks/* text eol=lf
+scripts/versioning/*.sh text eol=lf
