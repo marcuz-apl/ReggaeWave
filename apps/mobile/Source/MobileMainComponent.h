@@ -98,16 +98,16 @@ private:
 
     // Mobile Card 1: Import & Intake
     juce::Label intakeHeaderLabel_{"1. Input Track", "1. Input Track & AI Stems"};
-    juce::TextButton importFileButton_{"🎵 Tap to Select Audio File"};
-    juce::TextButton denoiseToggle_{"⚡ Denoise: ON"};
+    juce::TextButton importFileButton_{"Select Audio File"};
+    juce::TextButton denoiseToggle_{"Denoise: ON"};
     juce::Label trackInfoBadge_;
 
     // Mobile Card 2: Riddim & Dub Studio Deck
     juce::Label studioHeaderLabel_{"2. Riddim Studio", "2. Riddim & Dub Studio (3-Way Audition)"};
     ui::WaveformABView waveformView_;
     
-    juce::TextButton playButton_{"▶ Play"};
-    juce::TextButton rewindButton_{"↺ Rewind"};
+    juce::TextButton playButton_{"Play"};
+    juce::TextButton rewindButton_{"Rewind"};
     
     juce::TextButton origButton_{"Original"};
     juce::TextButton varAButton_{"Var A: One-Drop"};

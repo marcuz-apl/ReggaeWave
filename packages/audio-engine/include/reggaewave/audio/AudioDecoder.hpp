@@ -11,6 +11,12 @@
 #include <memory>
 #include <cstdio>
 
+#if defined(__ANDROID__)
+#include <media/NdkMediaCodec.h>
+#include <media/NdkMediaExtractor.h>
+#include <media/NdkMediaFormat.h>
+#endif
+
 #if __has_include(<juce_audio_formats/juce_audio_formats.h>)
 #include <juce_audio_formats/juce_audio_formats.h>
 #define HAS_JUCE_AUDIO_FORMATS 1
@@ -57,6 +63,144 @@ struct DecodedAudio {
  */
 class AudioDecoder {
 public:
+    static DecodedAudio fromInterleavedPcm16(const std::int16_t* samples,
+                                             size_t frames,
+                                             int sourceChannels,
+                                             double sampleRate) {
+        if (samples == nullptr || frames == 0 || sourceChannels <= 0 || sampleRate <= 0.0)
+            throw std::runtime_error("Invalid platform PCM audio output");
+
+        const int channelsToRead = std::min(sourceChannels, 2);
+        DecodedAudio result;
+        result.sampleRate = sampleRate;
+        result.numChannels = 2;
+        result.numSamples = frames;
+        result.durationSeconds = static_cast<double>(frames) / sampleRate;
+        result.channels.assign(2, std::vector<float>(frames, 0.0f));
+
+        for (size_t frame = 0; frame < frames; ++frame) {
+            result.channels[0][frame] = static_cast<float>(samples[frame * sourceChannels]) / 32768.0f;
+            result.channels[1][frame] = channelsToRead > 1
+                ? static_cast<float>(samples[frame * sourceChannels + 1]) / 32768.0f
+                : result.channels[0][frame];
+        }
+        return result;
+    }
+
+#if defined(__ANDROID__)
+    static DecodedAudio decodeViaAndroidMediaCodec(const std::string& filePath) {
+        AMediaExtractor* extractor = AMediaExtractor_new();
+        AMediaCodec* codec = nullptr;
+        AMediaFormat* trackFormat = nullptr;
+        AMediaFormat* outputFormat = nullptr;
+        bool started = false;
+
+        auto cleanup = [&] {
+            if (started) AMediaCodec_stop(codec);
+            if (codec) AMediaCodec_delete(codec);
+            if (outputFormat) AMediaFormat_delete(outputFormat);
+            if (trackFormat) AMediaFormat_delete(trackFormat);
+            if (extractor) AMediaExtractor_delete(extractor);
+        };
+
+        try {
+            if (!extractor || AMediaExtractor_setDataSource(extractor, filePath.c_str()) != AMEDIA_OK)
+                throw std::runtime_error("Android media extractor could not open the file");
+
+            size_t audioTrack = static_cast<size_t>(-1);
+            const size_t trackCount = AMediaExtractor_getTrackCount(extractor);
+            for (size_t i = 0; i < trackCount; ++i) {
+                AMediaFormat* candidate = AMediaExtractor_getTrackFormat(extractor, i);
+                const char* mime = nullptr;
+                const bool isAudio = candidate && AMediaFormat_getString(candidate, AMEDIAFORMAT_KEY_MIME, &mime)
+                    && mime && std::strncmp(mime, "audio/", 6) == 0;
+                if (isAudio && audioTrack == static_cast<size_t>(-1)) {
+                    audioTrack = i;
+                    trackFormat = candidate;
+                } else if (candidate) {
+                    AMediaFormat_delete(candidate);
+                }
+            }
+            if (audioTrack == static_cast<size_t>(-1) || !trackFormat)
+                throw std::runtime_error("Android media extractor found no audio track");
+
+            const char* mime = nullptr;
+            if (!AMediaFormat_getString(trackFormat, AMEDIAFORMAT_KEY_MIME, &mime) || !mime)
+                throw std::runtime_error("Android media track has no decoder MIME type");
+            AMediaExtractor_selectTrack(extractor, audioTrack);
+            codec = AMediaCodec_createDecoderByType(mime);
+            if (!codec || AMediaCodec_configure(codec, trackFormat, nullptr, nullptr, 0) != AMEDIA_OK
+                || AMediaCodec_start(codec) != AMEDIA_OK)
+                throw std::runtime_error("Android MediaCodec could not decode the audio track");
+            started = true;
+
+            int32_t sampleRate = 44100;
+            int32_t channels = 2;
+            AMediaFormat_getInt32(trackFormat, AMEDIAFORMAT_KEY_SAMPLE_RATE, &sampleRate);
+            AMediaFormat_getInt32(trackFormat, AMEDIAFORMAT_KEY_CHANNEL_COUNT, &channels);
+            bool inputDone = false;
+            bool outputDone = false;
+            std::vector<int16_t> pcm;
+
+            for (int iterations = 0; !outputDone && iterations < 100000; ++iterations) {
+                if (!inputDone) {
+                    const ssize_t inputIndex = AMediaCodec_dequeueInputBuffer(codec, 10000);
+                    if (inputIndex >= 0) {
+                        size_t capacity = 0;
+                        uint8_t* input = AMediaCodec_getInputBuffer(codec, static_cast<size_t>(inputIndex), &capacity);
+                        const ssize_t sampleSize = AMediaExtractor_getSampleSize(extractor);
+                        if (sampleSize < 0) {
+                            AMediaCodec_queueInputBuffer(codec, static_cast<size_t>(inputIndex), 0, 0, 0,
+                                                         AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM);
+                            inputDone = true;
+                        } else if (input && static_cast<size_t>(sampleSize) <= capacity) {
+                            const ssize_t copied = AMediaExtractor_readSampleData(extractor, input,
+                                                                                   static_cast<size_t>(sampleSize));
+                            const int64_t timestamp = AMediaExtractor_getSampleTime(extractor);
+                            AMediaCodec_queueInputBuffer(codec, static_cast<size_t>(inputIndex), 0,
+                                                         static_cast<size_t>(std::max<ssize_t>(0, copied)),
+                                                         static_cast<uint64_t>(std::max<int64_t>(0, timestamp)), 0);
+                            AMediaExtractor_advance(extractor);
+                        }
+                    }
+                }
+
+                AMediaCodecBufferInfo info{};
+                const ssize_t outputIndex = AMediaCodec_dequeueOutputBuffer(codec, &info, 10000);
+                if (outputIndex >= 0) {
+                    size_t outputCapacity = 0;
+                    uint8_t* output = AMediaCodec_getOutputBuffer(codec, static_cast<size_t>(outputIndex), &outputCapacity);
+                    if (output && info.size > 0) {
+                        const size_t byteOffset = static_cast<size_t>(std::max<int32_t>(0, info.offset));
+                        const size_t byteCount = static_cast<size_t>(info.size);
+                        if (byteOffset + byteCount <= outputCapacity) {
+                            const auto* pcm16 = reinterpret_cast<const int16_t*>(output + byteOffset);
+                            pcm.insert(pcm.end(), pcm16, pcm16 + byteCount / sizeof(int16_t));
+                        }
+                    }
+                    outputDone = (info.flags & AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM) != 0;
+                    AMediaCodec_releaseOutputBuffer(codec, static_cast<size_t>(outputIndex), false);
+                } else if (outputIndex == AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED) {
+                    if (outputFormat) AMediaFormat_delete(outputFormat);
+                    outputFormat = AMediaCodec_getOutputFormat(codec);
+                    if (outputFormat) {
+                        AMediaFormat_getInt32(outputFormat, AMEDIAFORMAT_KEY_SAMPLE_RATE, &sampleRate);
+                        AMediaFormat_getInt32(outputFormat, AMEDIAFORMAT_KEY_CHANNEL_COUNT, &channels);
+                    }
+                }
+            }
+            if (pcm.empty()) throw std::runtime_error("Android MediaCodec produced no PCM audio");
+            auto result = fromInterleavedPcm16(pcm.data(), pcm.size() / static_cast<size_t>(std::max(1, channels)),
+                                               std::max(1, channels), static_cast<double>(sampleRate));
+            cleanup();
+            return result;
+        } catch (...) {
+            cleanup();
+            throw;
+        }
+    }
+#endif
+
 #if defined(_WIN32)
     static DecodedAudio decodeViaWindowsMediaFoundation(const std::string& filePath) {
         HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
@@ -237,6 +381,15 @@ public:
             return decodeViaWindowsMediaFoundation(filePath);
         } catch (...) {
             // Fall through to WAV decoder
+        }
+#endif
+
+#if defined(__ANDROID__)
+        // Android JUCE does not provide an AAC/M4A reader; use the platform codec.
+        try {
+            return decodeViaAndroidMediaCodec(filePath);
+        } catch (...) {
+            // Keep WAV and other JUCE-native formats available below.
         }
 #endif
 

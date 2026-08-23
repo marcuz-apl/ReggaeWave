@@ -194,7 +194,10 @@ void HelpDialogModal::paint(juce::Graphics& g)
 {
     g.fillAll(juce::Colours::black.withAlpha(0.80f));
 
-    auto cardArea = getLocalBounds().withSizeKeepingCentre(720, 520).toFloat();
+    auto available = getLocalBounds().reduced(8);
+    auto cardArea = available.withSizeKeepingCentre(
+        juce::jmin(720, available.getWidth()),
+        juce::jmin(520, available.getHeight())).toFloat();
     g.setColour(ReggaeWaveTheme::bgSurface);
     g.fillRoundedRectangle(cardArea, 14.0f);
 
@@ -204,15 +207,18 @@ void HelpDialogModal::paint(juce::Graphics& g)
 
 void HelpDialogModal::resized()
 {
-    auto cardArea = getLocalBounds().withSizeKeepingCentre(720, 520).reduced(24);
+    auto available = getLocalBounds().reduced(8);
+    auto cardArea = available.withSizeKeepingCentre(
+        juce::jmin(720, available.getWidth()),
+        juce::jmin(520, available.getHeight())).reduced(juce::jmin(24, available.getWidth() / 16));
 
     // Title and subtitle
-    headerTitleLabel_.setBounds(cardArea.removeFromTop(30));
-    headerSubtitleLabel_.setBounds(cardArea.removeFromTop(20));
-    cardArea.removeFromTop(12);
+    headerTitleLabel_.setBounds(cardArea.removeFromTop(juce::jmin(30, cardArea.getHeight())));
+    headerSubtitleLabel_.setBounds(cardArea.removeFromTop(juce::jmin(20, cardArea.getHeight())));
+    cardArea.removeFromTop(juce::jmin(12, cardArea.getHeight()));
 
     // Tab buttons row (32px height)
-    auto tabRow = cardArea.removeFromTop(32);
+    auto tabRow = cardArea.removeFromTop(juce::jmin(32, cardArea.getHeight()));
     int tabWidth = (tabRow.getWidth() - 16) / 3;
     heritageTabButton_.setBounds(tabRow.removeFromLeft(tabWidth));
     tabRow.removeFromLeft(8);
@@ -220,11 +226,13 @@ void HelpDialogModal::resized()
     tabRow.removeFromLeft(8);
     denoiseTabButton_.setBounds(tabRow);
 
-    cardArea.removeFromTop(12);
+    cardArea.removeFromTop(juce::jmin(12, cardArea.getHeight()));
 
     // Close button at bottom
-    closeButton_.setBounds(cardArea.removeFromBottom(36).withSizeKeepingCentre(140, 36));
-    cardArea.removeFromBottom(10);
+    closeButton_.setBounds(cardArea.removeFromBottom(juce::jmin(36, cardArea.getHeight()))
+                               .withSizeKeepingCentre(juce::jmin(140, cardArea.getWidth()),
+                                                       juce::jmin(36, cardArea.getHeight())));
+    cardArea.removeFromBottom(juce::jmin(10, cardArea.getHeight()));
 
     // Multi-line content takes remaining space
     contentEditor_.setBounds(cardArea);

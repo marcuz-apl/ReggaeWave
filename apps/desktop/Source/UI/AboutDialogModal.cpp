@@ -52,7 +52,10 @@ AboutDialogModal::AboutDialogModal(OnClose onClose)
 void AboutDialogModal::paint(juce::Graphics& g) {
     g.fillAll(juce::Colours::black.withAlpha(0.75f));
 
-    auto cardArea = getLocalBounds().withSizeKeepingCentre(580, 345).toFloat();
+    auto available = getLocalBounds().reduced(8);
+    auto cardArea = available.withSizeKeepingCentre(
+        juce::jmin(580, available.getWidth()),
+        juce::jmin(345, available.getHeight())).toFloat();
     g.setColour(ReggaeWaveTheme::bgSurface);
     g.fillRoundedRectangle(cardArea, 14.0f);
 
@@ -61,18 +64,24 @@ void AboutDialogModal::paint(juce::Graphics& g) {
 }
 
 void AboutDialogModal::resized() {
-    auto cardArea = getLocalBounds().withSizeKeepingCentre(580, 345).reduced(24);
+    auto available = getLocalBounds().reduced(8);
+    auto cardArea = available.withSizeKeepingCentre(
+        juce::jmin(580, available.getWidth()),
+        juce::jmin(345, available.getHeight())).reduced(juce::jmin(24, available.getWidth() / 16));
 
-    titleLabel_.setBounds(cardArea.removeFromTop(32));
-    versionLabel_.setBounds(cardArea.removeFromTop(22));
-    cardArea.removeFromTop(12);
+    titleLabel_.setBounds(cardArea.removeFromTop(juce::jmin(32, cardArea.getHeight())));
+    versionLabel_.setBounds(cardArea.removeFromTop(juce::jmin(22, cardArea.getHeight())));
+    cardArea.removeFromTop(juce::jmin(12, cardArea.getHeight()));
 
-    infoContentLabel_.setBounds(cardArea.removeFromTop(140));
+    infoContentLabel_.setMinimumHorizontalScale(0.65f);
+    infoContentLabel_.setBounds(cardArea.removeFromTop(juce::jmin(140, cardArea.getHeight())));
 
-    copyrightLabel_.setBounds(cardArea.removeFromBottom(20));
-    cardArea.removeFromBottom(8);
+    copyrightLabel_.setBounds(cardArea.removeFromBottom(juce::jmin(20, cardArea.getHeight())));
+    cardArea.removeFromBottom(juce::jmin(8, cardArea.getHeight()));
 
-    closeButton_.setBounds(cardArea.removeFromBottom(36).withSizeKeepingCentre(130, 36));
+    closeButton_.setBounds(cardArea.removeFromBottom(juce::jmin(36, cardArea.getHeight()))
+                               .withSizeKeepingCentre(juce::jmin(130, cardArea.getWidth()),
+                                                       juce::jmin(36, cardArea.getHeight())));
 }
 
 } // namespace reggaewave::ui

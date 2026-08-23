@@ -70,7 +70,7 @@ MobileMainComponent::MobileMainComponent()
     denoiseToggle_.setToggleState(true, juce::dontSendNotification);
     denoiseToggle_.onClick = [this]() {
         isCleanupEnabled_ = denoiseToggle_.getToggleState();
-        denoiseToggle_.setButtonText(isCleanupEnabled_ ? "⚡ Denoise: ON" : "Denoise: OFF");
+        denoiseToggle_.setButtonText(isCleanupEnabled_ ? "Denoise: ON" : "Denoise: OFF");
         denoiseToggle_.setColour(juce::TextButton::textColourOffId, isCleanupEnabled_ ? ui::ReggaeWaveTheme::accentGreen : ui::ReggaeWaveTheme::textSecondary);
         if (currentLoadedFile_.existsAsFile()) {
             processImportedFile(currentLoadedFile_);
@@ -221,7 +221,7 @@ void MobileMainComponent::openFilePicker() {
 
 void MobileMainComponent::processImportedFile(const juce::File& file) {
     isPlaying_ = false;
-    playButton_.setButtonText("▶ Play");
+    playButton_.setButtonText("Play");
     waveformView_.setIsPlaying(false);
     currentLoadedFile_ = file;
     currentTrackTitle_ = file.getFileNameWithoutExtension();
@@ -264,7 +264,7 @@ void MobileMainComponent::processImportedFile(const juce::File& file) {
 void MobileMainComponent::handlePlayToggled() {
     if (dualTransport_.getTotalLengthSamples() == 0) return;
     isPlaying_ = !isPlaying_;
-    playButton_.setButtonText(isPlaying_ ? "⏸ Pause" : "▶ Play");
+    playButton_.setButtonText(isPlaying_ ? "Pause" : "Play");
     waveformView_.setIsPlaying(isPlaying_);
 }
 

@@ -43,3 +43,22 @@ TEST_CASE("AudioDecoder throws on corrupted or truncated byte buffer", "[intake]
     std::vector<uint8_t> badBytes = {0x00, 0x01, 0x02, 0x03};
     REQUIRE_THROWS_AS(AudioDecoder::decodeWavBytes(badBytes.data(), badBytes.size()), std::runtime_error);
 }
+
+TEST_CASE("AudioDecoder converts platform PCM output to stereo float audio", "[intake][decoder][mobile]") {
+    const std::int16_t interleaved[] = {
+        0, 32767,
+        -32768, 16384,
+    };
+
+    auto decoded = AudioDecoder::fromInterleavedPcm16(
+        interleaved, 2, 2, 48000.0);
+
+    REQUIRE(decoded.sampleRate == 48000.0);
+    REQUIRE(decoded.numChannels == 2);
+    REQUIRE(decoded.numSamples == 2);
+    REQUIRE(decoded.channels.size() == 2);
+    REQUIRE(decoded.channels[0][0] == 0.0f);
+    REQUIRE_THAT(decoded.channels[1][0], Catch::Matchers::WithinAbs(32767.0f / 32768.0f, 0.00001f));
+    REQUIRE_THAT(decoded.channels[0][1], Catch::Matchers::WithinAbs(-1.0f, 0.00001f));
+    REQUIRE_THAT(decoded.channels[1][1], Catch::Matchers::WithinAbs(0.5f, 0.00001f));
+}

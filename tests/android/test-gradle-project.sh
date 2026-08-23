@@ -10,6 +10,7 @@ grep -q 'com.alfazen.reggaewave' "$android/app/build.gradle"
 grep -Eq 'minSdk(Version)?[[:space:]]+(=[[:space:]]*)?29([[:space:]]|$)' "$android/app/build.gradle"
 grep -q 'arm64-v8a' "$android/app/build.gradle"
 grep -q 'x86_64' "$android/app/build.gradle"
+bash "$root/tests/android/test-mobile-ui-text.sh"
 
 if [ "${REGGAEWAVE_RUN_ANDROID_BUILD:-0}" = "1" ]; then
   if command -v cmd.exe >/dev/null 2>&1; then

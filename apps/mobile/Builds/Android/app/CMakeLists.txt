@@ -4570,6 +4570,7 @@ find_library(log "log")
 find_library(android "android")
 find_library(glesv3 "GLESv3")
 find_library(egl "EGL")
+find_library(mediandk "mediandk")
 
 target_link_libraries( ${BINARY_NAME}
 
@@ -4577,5 +4578,6 @@ target_link_libraries( ${BINARY_NAME}
     ${android}
     ${glesv3}
     ${egl}
+    ${mediandk}
     "cpufeatures"
 )
