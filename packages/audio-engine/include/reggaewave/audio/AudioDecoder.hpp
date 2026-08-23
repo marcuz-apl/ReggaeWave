@@ -63,6 +63,10 @@ struct DecodedAudio {
  */
 class AudioDecoder {
 public:
+    static bool isContentUri(const std::string& filePath) {
+        return filePath.rfind("content://", 0) == 0;
+    }
+
     static DecodedAudio fromInterleavedPcm16(const std::int16_t* samples,
                                              size_t frames,
                                              int sourceChannels,
@@ -93,6 +97,7 @@ public:
         AMediaCodec* codec = nullptr;
         AMediaFormat* trackFormat = nullptr;
         AMediaFormat* outputFormat = nullptr;
+        juce::File temporarySource;
         bool started = false;
 
         auto cleanup = [&] {
@@ -101,10 +106,28 @@ public:
             if (outputFormat) AMediaFormat_delete(outputFormat);
             if (trackFormat) AMediaFormat_delete(trackFormat);
             if (extractor) AMediaExtractor_delete(extractor);
+            if (temporarySource.existsAsFile()) temporarySource.deleteFile();
         };
 
         try {
-            if (!extractor || AMediaExtractor_setDataSource(extractor, filePath.c_str()) != AMEDIA_OK)
+            std::string sourcePath = filePath;
+            if (isContentUri(filePath)) {
+                juce::URL contentUrl(filePath);
+                if (contentUrl.isLocalFile()) {
+                    sourcePath = contentUrl.getLocalFile().getFullPathName().toStdString();
+                } else if (auto input = contentUrl.createInputStream(
+                               juce::URL::InputStreamOptions(juce::URL::ParameterHandling::inAddress))) {
+                    temporarySource = juce::File::createTempFile(".reggaewave-audio");
+                    if (auto output = temporarySource.createOutputStream()) {
+                        output->writeFromInputStream(*input, -1);
+                        output->flush();
+                        sourcePath = temporarySource.getFullPathName().toStdString();
+                    }
+                }
+            }
+
+            if (!extractor || sourcePath.empty()
+                || AMediaExtractor_setDataSource(extractor, sourcePath.c_str()) != AMEDIA_OK)
                 throw std::runtime_error("Android media extractor could not open the file");
 
             size_t audioTrack = static_cast<size_t>(-1);
@@ -385,11 +408,14 @@ public:
 #endif
 
 #if defined(__ANDROID__)
+        std::string androidFailure;
         // Android JUCE does not provide an AAC/M4A reader; use the platform codec.
         try {
             return decodeViaAndroidMediaCodec(filePath);
+        } catch (const std::exception& ex) {
+            androidFailure = ex.what();
         } catch (...) {
-            // Keep WAV and other JUCE-native formats available below.
+            androidFailure = "unknown Android media decoder failure";
         }
 #endif
 
@@ -426,7 +452,11 @@ public:
 
         return decodeWavBytes(wavBuffer.data(), wavBuffer.size());
 #else
-        throw std::runtime_error("Could not decode audio file: " + filePath + ". Direct mobile decoding only supports PCM WAV / JUCE native formats.");
+        std::string detail = ". Direct mobile decoding supports PCM WAV / JUCE native formats";
+#if defined(__ANDROID__)
+        if (!androidFailure.empty()) detail += "; Android media decoder: " + androidFailure;
+#endif
+        throw std::runtime_error("Could not decode audio file: " + filePath + detail + ".");
 #endif
     }
 
