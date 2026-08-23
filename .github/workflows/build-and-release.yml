@@ -34,7 +34,7 @@ jobs:
 
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Extract Version Identifier
         id: get_version
@@ -166,7 +166,7 @@ jobs:
           }
 
       - name: Upload Desktop Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ReggaeWave-${{ env.APP_VER }}-${{ matrix.platform_id }}
           path: ${{ matrix.upload_path }}
@@ -178,7 +178,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Extract Version Identifier
         id: get_version
@@ -217,7 +217,7 @@ jobs:
           fi
 
       - name: Upload iOS Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: ReggaeWave-${{ env.APP_VER }}-iOS-Simulator
@@ -229,7 +229,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Extract Version Identifier
         id: get_version
@@ -304,7 +304,7 @@ jobs:
           cp "$aab" "dist-android/ReggaeWave-${APP_VER}-Android-arm64-unsigned.aab"
 
       - name: Upload Android Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: ReggaeWave-${{ env.APP_VER }}-Android-Packages
@@ -321,7 +321,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Download All Artifacts
         uses: actions/download-artifact@v4
