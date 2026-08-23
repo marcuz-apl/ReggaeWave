@@ -1,5 +1,15 @@
 .DS_Store
 build/
+build-android-regression/
+build-local-verify/
+
+# Android Studio / Gradle local state and bootstrapped JUCE source
+apps/mobile/Builds/Android/.gradle/
+apps/mobile/Builds/Android/local.properties
+apps/mobile/Builds/Android/**/build/
+apps/mobile/third_party/JUCE/
+*.keystore
+*.jks
 CMakeUserPresets.json
 compile_commands.json
 .vscode/

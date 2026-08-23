@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<JUCERPROJECT name="ReggaeWaveMobile" projectType="guiapp" version="1.5.0"
+              bundleIdentifier="com.alfazen.reggaewave" companyName="Alfazen-Inc"
+              companyWebsite="https://github.com/marcuz-apl/ReggaeWave"
+              cppLanguageStandard="20"
+              headerPath="../../../desktop/Source&#10;../../../desktop/Source/UI&#10;../../../../packages/contracts/include&#10;../../../../packages/audio-engine/include&#10;../../../../packages/storage/include"
+              defines="REGGAEWAVE_APP_VERSION_STRING=\&quot;1.5.0\&quot;&#10;JUCE_USE_ANDROID_OPENSLES=1&#10;JUCE_USE_ANDROID_OBOE=0&#10;REGGAEWAVE_MOBILE=1"
+              id="ReggaeWaveMobile" jucerFormatVersion="1">
+  <MAINGROUP id="ReggaeWaveMobileFiles" name="ReggaeWaveMobile">
+    <GROUP id="MobileSource" name="Source">
+      <FILE id="MobileMain" name="MobileMain.cpp" compile="1" resource="0" file="Source/MobileMain.cpp"/>
+      <FILE id="MobileWindow" name="MobileMainWindow.cpp" compile="1" resource="0" file="Source/MobileMainWindow.cpp"/>
+      <FILE id="MobileComponent" name="MobileMainComponent.cpp" compile="1" resource="0" file="Source/MobileMainComponent.cpp"/>
+      <FILE id="MobileSharing" name="NativeMobileSharing.cpp" compile="1" resource="0" file="Source/Platform/NativeMobileSharing.cpp"/>
+    </GROUP>
+    <GROUP id="SharedUi" name="Shared UI">
+      <FILE id="Theme" name="ReggaeWaveTheme.cpp" compile="1" resource="0" file="../desktop/Source/UI/ReggaeWaveTheme.cpp"/>
+      <FILE id="Icon" name="ReggaeWaveIcon.cpp" compile="1" resource="0" file="../desktop/Source/UI/ReggaeWaveIcon.cpp"/>
+      <FILE id="Rights" name="RightsAttestationModal.cpp" compile="1" resource="0" file="../desktop/Source/UI/RightsAttestationModal.cpp"/>
+      <FILE id="Tuning" name="TuningPanel.cpp" compile="1" resource="0" file="../desktop/Source/UI/TuningPanel.cpp"/>
+      <FILE id="Waveform" name="WaveformABView.cpp" compile="1" resource="0" file="../desktop/Source/UI/WaveformABView.cpp"/>
+      <FILE id="About" name="AboutDialogModal.cpp" compile="1" resource="0" file="../desktop/Source/UI/AboutDialogModal.cpp"/>
+      <FILE id="Help" name="HelpDialogModal.cpp" compile="1" resource="0" file="../desktop/Source/UI/HelpDialogModal.cpp"/>
+      <FILE id="InlineExport" name="InlineExportProgressBar.cpp" compile="1" resource="0" file="../desktop/Source/UI/InlineExportProgressBar.cpp"/>
+      <FILE id="Export" name="ExportDialogModal.cpp" compile="1" resource="0" file="../desktop/Source/UI/ExportDialogModal.cpp"/>
+    </GROUP>
+    <GROUP id="Resources" name="Resources">
+      <FILE id="Icon512" name="reggaewave_512.png" compile="0" resource="0" file="Resources/reggaewave_512.png"/>
+      <FILE id="Icon32" name="reggaewave_32.png" compile="0" resource="0" file="Resources/reggaewave_32.png"/>
+    </GROUP>
+  </MAINGROUP>
+  <EXPORTFORMATS>
+    <ANDROIDSTUDIO targetFolder="Builds/Android" androidMinimumSDK="29" androidTargetSDK="34"
+                   androidVersionCode="10500" microphonePermissionNeeded="1" androidEnableContentSharing="1"
+                   androidCustomAppBuildGradleContent="buildTypes { release { signingConfig null } }"
+                   smallIcon="Icon32" bigIcon="Icon512">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug" targetName="ReggaeWave" androidArchitectures="x86_64 arm64-v8a"/>
+        <CONFIGURATION isDebug="0" name="Release" targetName="ReggaeWave" androidArchitectures="arm64-v8a"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_core" path="third_party/JUCE/modules"/>
+        <MODULEPATH id="juce_data_structures" path="third_party/JUCE/modules"/>
+        <MODULEPATH id="juce_events" path="third_party/JUCE/modules"/>
+        <MODULEPATH id="juce_graphics" path="third_party/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="third_party/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="third_party/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_basics" path="third_party/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="third_party/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="third_party/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="third_party/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_utils" path="third_party/JUCE/modules"/>
+      </MODULEPATHS>
+    </ANDROIDSTUDIO>
+  </EXPORTFORMATS>
+  <MODULES>
+    <MODULE id="juce_audio_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
+    <MODULE id="juce_audio_devices" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
+    <MODULE id="juce_audio_formats" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
+    <MODULE id="juce_audio_processors" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
+    <MODULE id="juce_audio_utils" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
+    <MODULE id="juce_core" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
+    <MODULE id="juce_data_structures" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
+    <MODULE id="juce_events" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
+    <MODULE id="juce_graphics" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
+    <MODULE id="juce_gui_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
+    <MODULE id="juce_gui_extra" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
+  </MODULES>
+  <JUCEOPTIONS JUCE_USE_CURL="0" JUCE_WEB_BROWSER="0" JUCE_USE_ANDROID_OPENSLES="1" JUCE_USE_ANDROID_OBOE="0"/>
+</JUCERPROJECT>
