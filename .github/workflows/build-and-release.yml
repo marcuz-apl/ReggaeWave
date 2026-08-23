@@ -225,7 +225,7 @@ jobs:
           retention-days: 30
 
   build-android:
-    name: Build Android NDK Binary
+    name: Build Android APK/AAB
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Source Code
@@ -261,6 +261,14 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: >-
+            platforms;android-34
+            build-tools;34.0.0
+            cmake;3.22.1
+
       - name: Set up Android NDK
         id: setup-ndk
         uses: nttld/setup-ndk@v1
@@ -268,41 +276,38 @@ jobs:
           ndk-version: r26b
           link-to-sdk: true
 
-      - name: Configure and Compile Android ARM64
-        env:
-          NDK_PATH: ${{ steps.setup-ndk.outputs.ndk-path }}
+      - name: Prepare JUCE 8.0.4 checkout
         run: |
-          test -n "$NDK_PATH"
-          test -f "$NDK_PATH/build/cmake/android.toolchain.cmake"
-          echo "Using Android NDK at: ${NDK_PATH}"
-          # JUCE 8's Android font implementation uses APIs introduced in API 29.
-          cmake -B build-android -G Ninja \
-            -DCMAKE_TOOLCHAIN_FILE="${NDK_PATH}/build/cmake/android.toolchain.cmake" \
-            -DANDROID_NDK="${NDK_PATH}" \
-            -DCMAKE_ANDROID_NDK="${NDK_PATH}" \
-            -DANDROID_ABI=arm64-v8a \
-            -DCMAKE_ANDROID_ARCH_ABI=arm64-v8a \
-            -DANDROID_PLATFORM=android-29 \
-            -DANDROID_STL=c++_shared \
-            -DCMAKE_ANDROID_STL_TYPE=c++_shared \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DREGGAEWAVE_BUILD_DESKTOP=OFF \
-            -DREGGAEWAVE_BUILD_TESTS=OFF \
-            -DREGGAEWAVE_BUILD_MOBILE=ON
-          cmake --build build-android --config Release --target ReggaeWaveMobile -v
+          git clone --depth 1 --branch 8.0.4 \
+            https://github.com/juce-framework/JUCE.git \
+            apps/mobile/third_party/JUCE
+          test "$(git -C apps/mobile/third_party/JUCE rev-parse HEAD)" = \
+            "51d11a2be6d5c97ccf12b4e5e827006e19f0555a"
+
+      - name: Verify Android Gradle project
+        run: |
+          bash tests/android/test-gradle-project.sh
+
+      - name: Build Android APK and AAB
+        run: |
+          REGGAEWAVE_RUN_ANDROID_BUILD=1 bash tests/android/test-gradle-project.sh
 
       - name: Package Android Distribution
         run: |
+          set -euo pipefail
           mkdir -p dist-android
-          cp -r build-android/apps/mobile/ReggaeWaveMobile_artefacts/Release/* dist-android/ 2>/dev/null || true
-          find build-android -name "*.so" -exec cp {} dist-android/ \; 2>/dev/null || true
-          find build-android -name "*.apk" -exec cp {} dist-android/ReggaeWave-${APP_VER}-Android.apk \; 2>/dev/null || true
+          apk=$(find apps/mobile/Builds/Android/app/build/outputs/apk -type f -name '*.apk' | head -n 1)
+          aab=$(find apps/mobile/Builds/Android/app/build/outputs/bundle -type f -name '*.aab' | head -n 1)
+          test -n "$apk"
+          test -n "$aab"
+          cp "$apk" "dist-android/ReggaeWave-${APP_VER}-Android-debug.apk"
+          cp "$aab" "dist-android/ReggaeWave-${APP_VER}-Android-arm64-unsigned.aab"
 
       - name: Upload Android Artifact
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ReggaeWave-${{ env.APP_VER }}-Android-ARM64
+          name: ReggaeWave-${{ env.APP_VER }}-Android-Packages
           path: dist-android/*
           retention-days: 30
 

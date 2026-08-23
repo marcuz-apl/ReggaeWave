@@ -50,9 +50,24 @@ You **do not need any store account, paid subscription, or approval** to build a
 
 ### Tier 3: Direct Android Device Sideloading (1-Tap Installation)
 * Android allows direct app installation without the Google Play Store:
-  1. Download the compiled `.apk` from GitHub Actions.
+  1. Download the `ReggaeWave-<version>-Android-debug.apk` artifact from GitHub Actions, or build it from `apps/mobile/Builds/Android/`.
   2. Transfer the file to your phone via USB, WeChat, WhatsApp, Telegram, or Google Drive.
   3. Tap the `.apk` file on your phone → Tap **Install** → ReggaeWave runs as a native Android app!
+
+The Android Gradle project uses JUCE 8.0.4 from an ignored checkout at `apps/mobile/third_party/JUCE/`. Prepare it once from the repository root:
+
+```powershell
+git clone --depth 1 --branch 8.0.4 https://github.com/juce-framework/JUCE.git apps/mobile/third_party/JUCE
+```
+
+On Windows, open `apps/mobile/Builds/Android/` in Android Studio or run:
+
+```powershell
+.\gradlew.bat --no-daemon :app:assembleDebug_Debug :app:bundleRelease_Release
+adb install -r app\build\outputs\apk\debug_\debug\app-debug_-debug.apk
+```
+
+The debug APK includes `arm64-v8a` and `x86_64` native libraries. The release AAB is an unsigned ARM64 bundle intended for later signing and distribution tooling rather than direct `adb` installation. Production signing and store submission remain out of scope. A standalone `libReggaeWaveMobile.so` is an internal library payload, not an installable edition.
 
 ### Tier 4: Direct iOS Device Installation (Free Personal Apple ID)
 * Apple permits developers to run apps on their personal iPhone/iPad:
@@ -107,7 +122,7 @@ The GitHub Actions workflow (`.github/workflows/build-and-release.yml`) builds a
 1. **Windows (x64):** `ReggaeWave-<ver>-Windows-Setup.exe` (NSIS dual-track installer)
 2. **macOS (Universal):** `ReggaeWave-<ver>-macOS-Universal.dmg` (Apple Silicon & Intel DMG)
 3. **Linux (x86_64):** `ReggaeWave-<ver>-Linux-x86_64.deb` and `.rpm`
-4. **Android (ARM64):** `ReggaeWave-<ver>-Android-ARM64` (Native NDK binary & APK)
+4. **Android:** `ReggaeWave-<ver>-Android-debug.apk` and `ReggaeWave-<ver>-Android-arm64-unsigned.aab`
 5. **iOS (Simulator):** `ReggaeWave-<ver>-iOS-Simulator.zip` (Xcode iOS 15.0+ bundle)
 
 ---
@@ -115,7 +130,7 @@ The GitHub Actions workflow (`.github/workflows/build-and-release.yml`) builds a
 ## 5. Phase-by-Phase Mobile Action Plan
 
 * **Phase M1 (Completed):** Established `apps/mobile/` target structure and `MobileMainComponent` touch deck.
-* **Phase M2 (Completed):** Automated cross-compilation CI pipeline for Android NDK and iOS Simulator.
+* **Phase M2 (Completed):** Automated Gradle packaging CI for the Android APK/AAB and cross-compilation CI for the iOS Simulator.
 * **Phase M3 (Upcoming):** Native Mobile OS Storage & File Sharing (`UIDocumentPicker`, iOS Share Sheet `UIActivityViewController`, and Android `Intent.ACTION_SEND`).
 * **Phase M4 (Upcoming):** Low-latency mobile audio backends (`AVAudioSession` on iOS and `AAudio/Oboe` on Android).
 * **Phase M5 (Future):** Production app store signing and submission guidelines.

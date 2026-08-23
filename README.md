@@ -8,6 +8,8 @@
 
 The output is always **Reggae**—no target-genre selector is needed. ReggaeWave separates stems, preserves the original lead vocal without voice cloning, generates authentic drum, bass, and skank rhythm sections, provides real-time Dub effects, and renders two synchronized variations for comparison and export.
 
+![ReggaeWave desktop interface](docs/assets/reggaewave-ui.png)
+
 ---
 
 ## Key Features
@@ -94,6 +96,31 @@ cmake --build build --config Release --parallel
 # (Optional) Run tests
 ctest --test-dir build -C Release --output-on-failure
 ```
+
+---
+
+## Mobile Editions: Current Status and Testing
+
+The shared JUCE mobile source lives in `apps/mobile/`. Android is packaged by the tracked Gradle project at `apps/mobile/Builds/Android/`.
+
+The `libReggaeWaveMobile.so` file seen in older v1.5.0 output is only an internal native Android library. It is not associated with the iOS Simulator and cannot be installed or tested on its own; the installable Android outputs are the APK and AAB produced by Gradle.
+
+- **iOS Simulator ZIP**: A `ReggaeWave.app` bundle built for the iOS Simulator. It is not an iPhone App Store package and requires a Mac with Xcode to run.
+- **Android debug APK**: A directly installable debug package containing `arm64-v8a` and `x86_64` native code for physical ARM64 devices and Android Studio emulators.
+- **Android release AAB**: An unsigned ARM64 Android App Bundle for later signing and distribution tooling. It is not installed directly with `adb`; use the debug APK for local device testing. Production signing and store submission remain out of scope.
+
+### Testing from Windows
+
+- **Android Studio**: Open `apps/mobile/Builds/Android/` as the project. Install Android SDK Platform 34, Build-Tools 34.0.0, NDK 26.2.11394342 (r26b), and CMake 3.22.1. From the repository root, bootstrap the ignored JUCE checkout once, then build:
+  ```powershell
+  git clone --depth 1 --branch 8.0.4 https://github.com/juce-framework/JUCE.git apps/mobile/third_party/JUCE
+  cd apps/mobile/Builds/Android
+  .\gradlew.bat --no-daemon :app:assembleDebug_Debug :app:bundleRelease_Release
+  adb install -r app\build\outputs\apk\debug_\debug\app-debug_-debug.apk
+  ```
+  The emulator should use an x86_64 image; a physical Android phone should normally use ARM64. The same APK can be selected from Android Studio's **Run** configuration. The generated release AAB is unsigned and is not a store-ready upload.
+- **Android/WSL**: From WSL, run `REGGAEWAVE_RUN_ANDROID_BUILD=1 bash tests/android/test-gradle-project.sh`; the helper uses the Windows Gradle wrapper when `cmd.exe` is available.
+- **iOS**: Windows cannot run the iOS Simulator or deploy an iOS app. Use a Mac with Xcode (local, hosted, or remote) to install the iOS Simulator ZIP; a physical iPhone also requires macOS/Xcode for signing and deployment. The v1.5.0 GitHub Actions build validates that the iOS Simulator target compiles.
 
 ---
 
