@@ -115,13 +115,15 @@ public:
                 juce::URL contentUrl(filePath);
                 if (contentUrl.isLocalFile()) {
                     sourcePath = contentUrl.getLocalFile().getFullPathName().toStdString();
-                } else if (auto input = contentUrl.createInputStream(
-                               juce::URL::InputStreamOptions(juce::URL::ParameterHandling::inAddress))) {
+                } else if (auto document = juce::AndroidDocument::fromDocument(contentUrl)) {
+                    auto input = document.createInputStream();
                     temporarySource = juce::File::createTempFile(".reggaewave-audio");
-                    if (auto output = temporarySource.createOutputStream()) {
-                        output->writeFromInputStream(*input, -1);
-                        output->flush();
-                        sourcePath = temporarySource.getFullPathName().toStdString();
+                    if (input) {
+                        if (auto output = temporarySource.createOutputStream()) {
+                            output->writeFromInputStream(*input, -1);
+                            output->flush();
+                            sourcePath = temporarySource.getFullPathName().toStdString();
+                        }
                     }
                 }
             }
@@ -159,8 +161,10 @@ public:
 
             int32_t sampleRate = 44100;
             int32_t channels = 2;
+            int32_t pcmEncoding = 2; // AudioFormat.ENCODING_PCM_16BIT
             AMediaFormat_getInt32(trackFormat, AMEDIAFORMAT_KEY_SAMPLE_RATE, &sampleRate);
             AMediaFormat_getInt32(trackFormat, AMEDIAFORMAT_KEY_CHANNEL_COUNT, &channels);
+            AMediaFormat_getInt32(trackFormat, AMEDIAFORMAT_KEY_PCM_ENCODING, &pcmEncoding);
             bool inputDone = false;
             bool outputDone = false;
             std::vector<int16_t> pcm;
@@ -197,8 +201,17 @@ public:
                         const size_t byteOffset = static_cast<size_t>(std::max<int32_t>(0, info.offset));
                         const size_t byteCount = static_cast<size_t>(info.size);
                         if (byteOffset + byteCount <= outputCapacity) {
-                            const auto* pcm16 = reinterpret_cast<const int16_t*>(output + byteOffset);
-                            pcm.insert(pcm.end(), pcm16, pcm16 + byteCount / sizeof(int16_t));
+                            if (pcmEncoding == 4) { // AudioFormat.ENCODING_PCM_FLOAT
+                                const auto* pcmFloat = reinterpret_cast<const float*>(output + byteOffset);
+                                const size_t sampleCount = byteCount / sizeof(float);
+                                for (size_t i = 0; i < sampleCount; ++i) {
+                                    const float value = std::clamp(pcmFloat[i], -1.0f, 1.0f);
+                                    pcm.push_back(static_cast<int16_t>(value * 32767.0f));
+                                }
+                            } else {
+                                const auto* pcm16 = reinterpret_cast<const int16_t*>(output + byteOffset);
+                                pcm.insert(pcm.end(), pcm16, pcm16 + byteCount / sizeof(int16_t));
+                            }
                         }
                     }
                     outputDone = (info.flags & AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM) != 0;
@@ -209,6 +222,7 @@ public:
                     if (outputFormat) {
                         AMediaFormat_getInt32(outputFormat, AMEDIAFORMAT_KEY_SAMPLE_RATE, &sampleRate);
                         AMediaFormat_getInt32(outputFormat, AMEDIAFORMAT_KEY_CHANNEL_COUNT, &channels);
+                        AMediaFormat_getInt32(outputFormat, AMEDIAFORMAT_KEY_PCM_ENCODING, &pcmEncoding);
                     }
                 }
             }

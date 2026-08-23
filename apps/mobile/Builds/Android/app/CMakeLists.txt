@@ -4581,3 +4581,9 @@ target_link_libraries( ${BINARY_NAME}
     ${mediandk}
     "cpufeatures"
 )
+
+# Keep the native library compatible with Android devices using 16 KB pages.
+target_link_options(${BINARY_NAME} PRIVATE
+    "-Wl,-z,max-page-size=16384"
+    "-Wl,-z,common-page-size=16384"
+)
