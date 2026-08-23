@@ -31,6 +31,7 @@ add_executable(reggaewave_tests
     audio/LyricVisualizerTests.cpp
     audio/AudioMastererTests.cpp
     audio/AudioExporterTests.cpp
+    audio/AudioExporterAndroidCompileTests.cpp
     storage/LocalDatabaseTests.cpp
     storage/RetentionManagerTests.cpp
 )
