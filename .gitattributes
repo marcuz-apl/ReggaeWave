@@ -1,0 +1,3 @@
+# Projucer emits these generated files with a trailing blank line.
+apps/mobile/Builds/Android/app/build.gradle whitespace=-blank-at-eof
+apps/mobile/Builds/Android/gradle/wrapper/LICENSE-for-gradlewrapper.txt whitespace=-blank-at-eof
