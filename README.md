@@ -6,6 +6,8 @@
 
 **ReggaeWave** transforms rights-cleared musical input from any source genre into an authentic, culturally reviewed **Reggae** arrangement. 
 
+Latest full-build tag: `v1.6.8-2608242`.
+
 The output is always **Reggae**—no target-genre selector is needed. ReggaeWave separates stems, preserves the original lead vocal without voice cloning, generates authentic drum, bass, and skank rhythm sections, provides real-time Dub effects, and renders two synchronized variations for comparison and export.
 
 ![ReggaeWave desktop interface](docs/assets/reggaewave-ui.png)
@@ -49,8 +51,9 @@ ReggaeWave/
 │   └── storage/                  # Transactional local SQLite state storage
 ├── docs/
 │   ├── PRD.md                    # Product Requirements Document (Source of Truth)
-│   ├── adr/                      # Architecture Decision Records (ADR 0001)
-│   └── tech-notes/               # Technical implementation plans & walkthroughs
+│   ├── note-0005a-android-gradle-packaging-design.md
+│   ├── note-0005b-android-gradle-packaging.md
+│   └── assets/                   # Documentation images
 └── tests/                        # Catch2 unit & DSP integration test suite
 ```
 
@@ -120,7 +123,7 @@ The `libReggaeWaveMobile.so` file seen in older v1.5.0 output is only an interna
   ```
   The emulator should use an x86_64 image; a physical Android phone should normally use ARM64. The same APK can be selected from Android Studio's **Run** configuration. The generated release AAB is unsigned and is not a store-ready upload.
 - **Android/WSL**: From WSL, run `REGGAEWAVE_RUN_ANDROID_BUILD=1 bash tests/android/test-gradle-project.sh`; the helper uses the Windows Gradle wrapper when `cmd.exe` is available.
-- **iOS**: Windows cannot run the iOS Simulator or deploy an iOS app. Use a Mac with Xcode (local, hosted, or remote) to install the iOS Simulator ZIP; a physical iPhone also requires macOS/Xcode for signing and deployment. The v1.5.0 GitHub Actions build validates that the iOS Simulator target compiles.
+- **iOS**: Windows cannot run the iOS Simulator or deploy an iOS app. Use a Mac with Xcode (local, hosted, or remote) to install the iOS Simulator ZIP; a physical iPhone also requires macOS/Xcode for signing and deployment. The `v1.6.8-2608242` GitHub Actions build validates the iOS Simulator target.
 
 ---
 
@@ -135,4 +138,6 @@ The `libReggaeWaveMobile.so` file seen in older v1.5.0 output is only an interna
 - **[Note 0003: Roadmap & Milestones](docs/note-0003-roadmap-and-milestones.md)** — Milestone delivery status.
 - **[Note 0004: Realtime DSP & Studio Architecture](docs/note-0004-desktop-studio-architecture-and-realtime-dsp.md)** — Deep dive into audio thread safety and device management.
 - **[Note 0005: Mobile Edition Architecture & Testing Guide](docs/note-0005-mobile-edition-architecture-testing-and-roadmap.md)** — First-time mobile developer guide, testing without store accounts, and Android/iOS architecture.
+- **[Note 0005a: Android Gradle Packaging Design](docs/note-0005a-android-gradle-packaging-design.md)** — Android APK/AAB packaging architecture and CI behavior.
+- **[Note 0005b: Android Gradle Packaging Plan](docs/note-0005b-android-gradle-packaging.md)** — Implementation and verification plan for the Android Gradle project.
 - **[Android Testing on Windows 11](docs/android-testing-windows.md)** — Emulator, physical-device, APK installation, package inspection, and crash-log instructions.

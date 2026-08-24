@@ -8,7 +8,7 @@
 
 **Tech Stack:** JUCE 8.0.4 Projucer Android Studio exporter, Gradle, Android SDK API 29+, NDK r26b, CMake, Bash checks, GitHub Actions.
 
-**Spec:** `docs/superpowers/specs/2026-08-23-android-gradle-packaging-design.md`
+**Spec:** `docs/note-0005a-android-gradle-packaging-design.md`
 
 ## Global Constraints
 
