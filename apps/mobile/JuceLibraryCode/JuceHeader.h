@@ -47,7 +47,7 @@ namespace ProjectInfo
 {
     const char* const  projectName    = "ReggaeWaveMobile";
     const char* const  companyName    = "Alfazen-Inc";
-    const char* const  versionString  = "1.6.9-2608243";
-    const int          versionNumber  = 0x10609;
+    const char* const  versionString  = "1.7.0-2608244";
+    const int          versionNumber  = 0x10700;
 }
 #endif

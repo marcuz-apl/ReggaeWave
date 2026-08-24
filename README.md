@@ -130,7 +130,7 @@ The `libReggaeWaveMobile.so` file seen in older v1.5.0 output is only an interna
 ## Documentation
 
 - **[Product Requirements Document (PRD)](docs/PRD.md)** — Definitive source of truth for product scope, 3-dial creative controls, and mastering specs.
-- **[Cultural Evaluation Rubric](docs/cultural-evaluation-rubric.md)** — Safeguarding authentic Jamaican living heritage across 5 acoustic dimensions.
+- **[Cultural Evaluation Rubric](docs/rubric-cultural-evaluation.md)** — Safeguarding authentic Jamaican living heritage across 5 acoustic dimensions.
 - **[Desktop & Offline Architecture Design](docs/spec-offline-desktop-architecture-design.md)** — Specification for the offline desktop workstation and DSP pipeline.
 - **[ADR 0001: Desktop C++20 & JUCE 8 Architecture](docs/adr-0001-desktop-cpp-juce-architecture.md)** — Architecture decision record.
 - **[Note 0001: Implementation Plan](docs/note-0001-implementation-plan.md)** — Technical milestones and module breakdown.
@@ -140,4 +140,4 @@ The `libReggaeWaveMobile.so` file seen in older v1.5.0 output is only an interna
 - **[Note 0005: Mobile Edition Architecture & Testing Guide](docs/note-0005-mobile-edition-architecture-testing-and-roadmap.md)** — First-time mobile developer guide, testing without store accounts, and Android/iOS architecture.
 - **[Note 0005a: Android Gradle Packaging Design](docs/note-0005a-android-gradle-packaging-design.md)** — Android APK/AAB packaging architecture and CI behavior.
 - **[Note 0005b: Android Gradle Packaging Plan](docs/note-0005b-android-gradle-packaging.md)** — Implementation and verification plan for the Android Gradle project.
-- **[Android Testing on Windows 11](docs/android-testing-windows.md)** — Emulator, physical-device, APK installation, package inspection, and crash-log instructions.
+- **[Android Testing on Windows 11](docs/guide-android-testing-windows.md)** — Emulator, physical-device, APK installation, package inspection, and crash-log instructions.

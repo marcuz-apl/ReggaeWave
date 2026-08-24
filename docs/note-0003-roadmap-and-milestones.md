@@ -150,4 +150,4 @@
   - `CPackConfig.cmake`: DMG & App bundle for macOS, NSIS / MSI for Windows, DEB / TGZ for Linux.
   - Desktop integration: `reggaewave.desktop` Linux menu entry.
 - [x] **7.2 Cultural Safeguards & Review Rubric**:
-  - `docs/cultural-evaluation-rubric.md`: Formal 5-dimension rubric (Rhythm, Sub-Bass, Skank/Bubble, Dub Space, Vocal Integrity) based on UNESCO Intangible Cultural Heritage safeguards requiring $\ge 8.0 / 10.0$ aggregate score before release.
+  - `docs/rubric-cultural-evaluation.md`: Formal 5-dimension rubric (Rhythm, Sub-Bass, Skank/Bubble, Dub Space, Vocal Integrity) based on UNESCO Intangible Cultural Heritage safeguards requiring $\ge 8.0 / 10.0$ aggregate score before release.
