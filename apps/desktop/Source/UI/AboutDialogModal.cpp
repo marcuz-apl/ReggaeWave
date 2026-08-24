@@ -14,7 +14,10 @@ AboutDialogModal::AboutDialogModal(OnClose onClose)
     addAndMakeVisible(titleLabel_);
 
 #if defined(REGGAEWAVE_APP_VERSION_STRING)
-    versionLabel_.setText("v" REGGAEWAVE_APP_VERSION_STRING " | Jamaican Living Heritage Engine", juce::dontSendNotification);
+    auto displayedVersion = juce::String(REGGAEWAVE_APP_VERSION_STRING);
+    if (!displayedVersion.startsWithChar('v'))
+        displayedVersion = "v" + displayedVersion;
+    versionLabel_.setText(displayedVersion + " | Jamaican Living Heritage Engine", juce::dontSendNotification);
 #else
     versionLabel_.setText("v1.3.0-2608213 | Jamaican Living Heritage Engine", juce::dontSendNotification);
 #endif

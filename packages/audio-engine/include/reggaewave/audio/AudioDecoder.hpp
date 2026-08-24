@@ -67,6 +67,10 @@ public:
         return filePath.rfind("content://", 0) == 0;
     }
 
+    static bool isUsableInputReference(const std::string& filePath, bool existsAsFile) {
+        return !filePath.empty() && (existsAsFile || isContentUri(filePath));
+    }
+
     static DecodedAudio fromInterleavedPcm16(const std::int16_t* samples,
                                              size_t frames,
                                              int sourceChannels,

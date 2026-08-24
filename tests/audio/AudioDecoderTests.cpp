@@ -66,4 +66,9 @@ TEST_CASE("AudioDecoder converts platform PCM output to stereo float audio", "[i
 TEST_CASE("AudioDecoder identifies Android document URIs", "[intake][decoder][mobile]") {
     REQUIRE(AudioDecoder::isContentUri("content://com.android.providers.media.documents/document/audio%3A42"));
     REQUIRE_FALSE(AudioDecoder::isContentUri("/storage/emulated/0/Music/track.m4a"));
+
+    REQUIRE(AudioDecoder::isUsableInputReference(
+        "content://com.android.providers.media.documents/document/audio%3A42", false));
+    REQUIRE(AudioDecoder::isUsableInputReference("/storage/emulated/0/Music/track.m4a", true));
+    REQUIRE_FALSE(AudioDecoder::isUsableInputReference("", false));
 }

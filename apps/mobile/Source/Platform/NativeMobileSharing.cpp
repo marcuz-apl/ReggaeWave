@@ -1,4 +1,5 @@
 #include "NativeMobileSharing.h"
+#include <reggaewave/audio/AudioDecoder.hpp>
 
 #if JUCE_IOS
 #import <UIKit/UIKit.h>
@@ -74,8 +75,19 @@ void NativeMobileSharing::openDocumentPicker(std::function<void(const juce::File
     auto flags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
 
     chooser->launchAsync(flags, [chooser, onFileSelected = std::move(onFileSelected), onCancelled = std::move(onCancelled)](const juce::FileChooser& fc) {
-        auto result = fc.getResult();
-        if (result.existsAsFile()) {
+        const auto resultUrl = fc.getURLResult();
+        juce::File result;
+        if (resultUrl.isLocalFile()) {
+            result = resultUrl.getLocalFile();
+        } else if (resultUrl.toString(false).isNotEmpty()) {
+            // Android's Storage Access Framework returns a content:// URL rather
+            // than a filesystem path. Preserve it for AudioDecoder's document
+            // stream bridge instead of converting it through getResult().
+            result = juce::File(resultUrl.toString(false));
+        }
+
+        if (audio::AudioDecoder::isUsableInputReference(
+                result.getFullPathName().toStdString(), result.existsAsFile())) {
             if (onFileSelected) {
                 onFileSelected(result);
             }
