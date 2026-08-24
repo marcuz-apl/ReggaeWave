@@ -10,11 +10,15 @@
 #include <array>
 #include <memory>
 #include <cstdio>
+#include <cctype>
 
 #if defined(__ANDROID__)
 #include <media/NdkMediaCodec.h>
 #include <media/NdkMediaExtractor.h>
 #include <media/NdkMediaFormat.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #endif
 
 #if __has_include(<juce_audio_formats/juce_audio_formats.h>)
@@ -71,6 +75,31 @@ public:
         return !filePath.empty() && (existsAsFile || isContentUri(filePath));
     }
 
+    static bool canUseFilesystemReader(const std::string& inputReference) {
+        return !isContentUri(inputReference);
+    }
+
+    static std::string inputReferenceFromUrl(const std::string& url,
+                                             const std::string& localFilePath) {
+        if (isContentUri(url)) return url;
+        return localFilePath.empty() ? url : localFilePath;
+    }
+
+    static bool isSupportedAudioInputName(const std::string& fileName) {
+        const auto suffixStart = fileName.find_last_of('.');
+        if (suffixStart == std::string::npos) return false;
+
+        auto extension = fileName.substr(suffixStart);
+        std::transform(extension.begin(), extension.end(), extension.begin(),
+                       [](unsigned char value) { return static_cast<char>(std::tolower(value)); });
+
+        static constexpr std::array<const char*, 6> supported{
+            ".mp3", ".wav", ".m4a", ".flac", ".aac", ".ogg"
+        };
+        return std::any_of(supported.begin(), supported.end(),
+                           [&extension](const char* candidate) { return extension == candidate; });
+    }
+
     static DecodedAudio fromInterleavedPcm16(const std::int16_t* samples,
                                              size_t frames,
                                              int sourceChannels,
@@ -102,6 +131,7 @@ public:
         AMediaFormat* trackFormat = nullptr;
         AMediaFormat* outputFormat = nullptr;
         juce::File temporarySource;
+        int sourceFileDescriptor = -1;
         bool started = false;
 
         auto cleanup = [&] {
@@ -110,6 +140,7 @@ public:
             if (outputFormat) AMediaFormat_delete(outputFormat);
             if (trackFormat) AMediaFormat_delete(trackFormat);
             if (extractor) AMediaExtractor_delete(extractor);
+            if (sourceFileDescriptor >= 0) ::close(sourceFileDescriptor);
             if (temporarySource.existsAsFile()) temporarySource.deleteFile();
         };
 
@@ -117,9 +148,7 @@ public:
             std::string sourcePath = filePath;
             if (isContentUri(filePath)) {
                 juce::URL contentUrl(filePath);
-                if (contentUrl.isLocalFile()) {
-                    sourcePath = contentUrl.getLocalFile().getFullPathName().toStdString();
-                } else if (auto document = juce::AndroidDocument::fromDocument(contentUrl)) {
+                if (auto document = juce::AndroidDocument::fromDocument(contentUrl)) {
                     auto input = document.createInputStream();
                     temporarySource = juce::File::createTempFile(".reggaewave-audio");
                     if (input) {
@@ -132,8 +161,12 @@ public:
                 }
             }
 
-            if (!extractor || sourcePath.empty()
-                || AMediaExtractor_setDataSource(extractor, sourcePath.c_str()) != AMEDIA_OK)
+            struct stat sourceInfo{};
+            sourceFileDescriptor = ::open(sourcePath.c_str(), O_RDONLY);
+            if (!extractor || sourcePath.empty() || sourceFileDescriptor < 0
+                || ::fstat(sourceFileDescriptor, &sourceInfo) != 0 || sourceInfo.st_size <= 0
+                || AMediaExtractor_setDataSourceFd(extractor, sourceFileDescriptor, 0,
+                                                   static_cast<off64_t>(sourceInfo.st_size)) != AMEDIA_OK)
                 throw std::runtime_error("Android media extractor could not open the file");
 
             size_t audioTrack = static_cast<size_t>(-1);
@@ -379,11 +412,11 @@ public:
 #if HAS_JUCE_AUDIO_FORMATS
         // 1. Try native JUCE OS Decoders (Windows Media Foundation / CoreAudio / Built-in MP3/FLAC/OGG/WAV)
         try {
-            juce::AudioFormatManager formatMgr;
-            formatMgr.registerBasicFormats();
+            if (canUseFilesystemReader(filePath)) {
+                juce::AudioFormatManager formatMgr;
+                formatMgr.registerBasicFormats();
 
-            juce::File audioFile(filePath);
-            if (audioFile.existsAsFile()) {
+                juce::File audioFile(filePath);
                 std::unique_ptr<juce::AudioFormatReader> reader(formatMgr.createReaderFor(audioFile));
                 if (reader != nullptr && reader->lengthInSamples > 0) {
                     DecodedAudio decoded;

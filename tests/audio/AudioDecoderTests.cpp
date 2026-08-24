@@ -72,3 +72,29 @@ TEST_CASE("AudioDecoder identifies Android document URIs", "[intake][decoder][mo
     REQUIRE(AudioDecoder::isUsableInputReference("/storage/emulated/0/Music/track.m4a", true));
     REQUIRE_FALSE(AudioDecoder::isUsableInputReference("", false));
 }
+
+TEST_CASE("AudioDecoder preserves Android document URLs as input references", "[intake][decoder][mobile]") {
+    REQUIRE(AudioDecoder::inputReferenceFromUrl(
+                "content://com.android.providers.media.documents/document/audio%3A47",
+                "/incorrect/content-uri-as-file")
+            == "content://com.android.providers.media.documents/document/audio%3A47");
+    REQUIRE(AudioDecoder::inputReferenceFromUrl(
+                "file:///storage/emulated/0/Music/track.mp3",
+                "/storage/emulated/0/Music/track.mp3")
+            == "/storage/emulated/0/Music/track.mp3");
+}
+
+TEST_CASE("AudioDecoder never sends Android document URIs through filesystem readers", "[intake][decoder][mobile]") {
+    REQUIRE_FALSE(AudioDecoder::canUseFilesystemReader(
+        "content://com.android.providers.media.documents/document/audio%3A47"));
+    REQUIRE(AudioDecoder::canUseFilesystemReader(
+        "/storage/emulated/0/Music/track.mp3"));
+}
+
+TEST_CASE("AudioDecoder accepts supported mobile audio file names including M4A", "[intake][decoder][mobile]") {
+    REQUIRE(AudioDecoder::isSupportedAudioInputName("track.mp3"));
+    REQUIRE(AudioDecoder::isSupportedAudioInputName("TRACK.M4A"));
+    REQUIRE(AudioDecoder::isSupportedAudioInputName("recording.aac"));
+    REQUIRE_FALSE(AudioDecoder::isSupportedAudioInputName("notes.txt"));
+    REQUIRE_FALSE(AudioDecoder::isSupportedAudioInputName(""));
+}

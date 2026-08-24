@@ -24,7 +24,7 @@ public:
     /**
      * @brief Launches the native OS audio file picker (UIDocumentPicker on iOS, SAF on Android).
      */
-    static void openDocumentPicker(std::function<void(const juce::File&)> onFileSelected,
+    static void openDocumentPicker(std::function<void(const juce::URL&)> onFileSelected,
                                    std::function<void()> onCancelled = nullptr);
 };
 

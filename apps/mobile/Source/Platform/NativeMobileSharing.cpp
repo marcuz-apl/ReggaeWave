@@ -63,33 +63,34 @@ void NativeMobileSharing::shareExportedFile(const juce::File& file,
 #endif
 }
 
-void NativeMobileSharing::openDocumentPicker(std::function<void(const juce::File&)> onFileSelected,
+void NativeMobileSharing::openDocumentPicker(std::function<void(const juce::URL&)> onFileSelected,
                                              std::function<void()> onCancelled)
 {
+#if JUCE_ANDROID
+    // JUCE 8.0.4 has no Android MIME-table entry for .m4a, so a native
+    // extension filter disables valid M4A documents. Show openable files and
+    // enforce ReggaeWave's audio allowlist after selection instead.
+    const juce::String fileFilter = "*";
+#else
+    const juce::String fileFilter = "*.mp3;*.wav;*.m4a;*.flac;*.aac;*.ogg";
+#endif
     auto chooser = std::make_shared<juce::FileChooser>(
         "Select Audio Track to Convert",
         juce::File::getSpecialLocation(juce::File::userMusicDirectory),
-        "*.mp3;*.wav;*.m4a;*.flac;*.aac;*.ogg"
+        fileFilter
     );
 
     auto flags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
 
     chooser->launchAsync(flags, [chooser, onFileSelected = std::move(onFileSelected), onCancelled = std::move(onCancelled)](const juce::FileChooser& fc) {
         const auto resultUrl = fc.getURLResult();
-        juce::File result;
-        if (resultUrl.isLocalFile()) {
-            result = resultUrl.getLocalFile();
-        } else if (resultUrl.toString(false).isNotEmpty()) {
-            // Android's Storage Access Framework returns a content:// URL rather
-            // than a filesystem path. Preserve it for AudioDecoder's document
-            // stream bridge instead of converting it through getResult().
-            result = juce::File(resultUrl.toString(false));
-        }
-
-        if (audio::AudioDecoder::isUsableInputReference(
-                result.getFullPathName().toStdString(), result.existsAsFile())) {
+        if (!resultUrl.isEmpty()
+            && audio::AudioDecoder::isSupportedAudioInputName(
+                resultUrl.getFileName().toStdString())) {
             if (onFileSelected) {
-                onFileSelected(result);
+                // Keep content:// references as URLs. juce::File accepts only
+                // filesystem paths and would corrupt an Android document URI.
+                onFileSelected(resultUrl);
             }
         } else {
             if (onCancelled) {

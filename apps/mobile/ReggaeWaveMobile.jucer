@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT name="ReggaeWaveMobile" projectType="guiapp" version="1.6.7"
+<JUCERPROJECT name="ReggaeWaveMobile" projectType="guiapp" version="1.6.9"
               bundleIdentifier="com.alfazen.reggaewave" companyName="Alfazen-Inc"
               companyWebsite="https://github.com/marcuz-apl/ReggaeWave"
               cppLanguageStandard="20"
               headerPath="../../../desktop/Source&#10;../../../desktop/Source/UI&#10;../../../../packages/contracts/include&#10;../../../../packages/audio-engine/include&#10;../../../../packages/storage/include"
-              defines="REGGAEWAVE_APP_VERSION_STRING=&quot;1.6.7-2608241&quot;&#10;JUCE_APP_CONFIG_HEADER=&quot;AppConfig.h&quot;&#10;JUCE_USE_ANDROID_OPENSLES=1&#10;JUCE_USE_ANDROID_OBOE=0&#10;REGGAEWAVE_MOBILE=1"
+              defines="REGGAEWAVE_APP_VERSION_STRING=&quot;1.6.9-2608243&quot;&#10;JUCE_APP_CONFIG_HEADER=&quot;AppConfig.h&quot;&#10;JUCE_USE_ANDROID_OPENSLES=1&#10;JUCE_USE_ANDROID_OBOE=0&#10;REGGAEWAVE_MOBILE=1"
               id="ReggaeWaveMobile" jucerFormatVersion="1">
   <MAINGROUP id="ReggaeWaveMobileFiles" name="ReggaeWaveMobile">
     <GROUP id="MobileSource" name="Source">
@@ -32,7 +32,7 @@
   </MAINGROUP>
   <EXPORTFORMATS>
     <ANDROIDSTUDIO targetFolder="Builds/Android" androidMinimumSDK="29" androidTargetSDK="34"
-                   androidVersionCode="10607" microphonePermissionNeeded="1" androidEnableContentSharing="1"
+                   androidVersionCode="10609" microphonePermissionNeeded="1" androidEnableContentSharing="1"
                    androidCustomAppBuildGradleContent="buildTypes { release { signingConfig null } }"
                    smallIcon="Icon32" bigIcon="Icon512">
       <CONFIGURATIONS>

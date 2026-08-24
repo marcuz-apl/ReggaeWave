@@ -57,7 +57,7 @@ public:
 
 private:
     void openFilePicker();
-    void processImportedFile(const juce::File& file);
+    void processImportedUrl(const juce::URL& inputUrl);
     void handlePlayToggled();
     void handleRewind();
     void handleVariationChanged(audio::ActiveVariation variation);
@@ -80,7 +80,7 @@ private:
     double currentSampleRate_ = 44100.0;
     double currentDurationSecs_ = 0.0;
     juce::String currentTrackTitle_ = "Track";
-    juce::File currentLoadedFile_;
+    juce::URL currentLoadedUrl_;
     audio::ActiveVariation currentVariation_ = audio::ActiveVariation::VariationA;
     bool isPlaying_ = false;
     bool isCleanupEnabled_ = true;

@@ -72,8 +72,8 @@ MobileMainComponent::MobileMainComponent()
         isCleanupEnabled_ = denoiseToggle_.getToggleState();
         denoiseToggle_.setButtonText(isCleanupEnabled_ ? "Denoise: ON" : "Denoise: OFF");
         denoiseToggle_.setColour(juce::TextButton::textColourOffId, isCleanupEnabled_ ? ui::ReggaeWaveTheme::accentGreen : ui::ReggaeWaveTheme::textSecondary);
-        if (currentLoadedFile_.existsAsFile()) {
-            processImportedFile(currentLoadedFile_);
+        if (!currentLoadedUrl_.isEmpty()) {
+            processImportedUrl(currentLoadedUrl_);
         }
     };
     contentContainer_.addAndMakeVisible(denoiseToggle_);
@@ -204,14 +204,14 @@ bool MobileMainComponent::isInterestedInFileDrag(const juce::StringArray& files)
 void MobileMainComponent::filesDropped(const juce::StringArray& files, int x, int y) {
     juce::ignoreUnused(x, y);
     if (files.size() > 0) {
-        processImportedFile(juce::File(files[0]));
+        processImportedUrl(juce::URL(juce::File(files[0])));
     }
 }
 
 void MobileMainComponent::openFilePicker() {
     NativeMobileSharing::openDocumentPicker(
-        [this](const juce::File& file) {
-            processImportedFile(file);
+        [this](const juce::URL& inputUrl) {
+            processImportedUrl(inputUrl);
         },
         [this]() {
             // Cancelled
@@ -219,18 +219,28 @@ void MobileMainComponent::openFilePicker() {
     );
 }
 
-void MobileMainComponent::processImportedFile(const juce::File& file) {
+void MobileMainComponent::processImportedUrl(const juce::URL& inputUrl) {
     isPlaying_ = false;
     playButton_.setButtonText("Play");
     waveformView_.setIsPlaying(false);
-    currentLoadedFile_ = file;
-    currentTrackTitle_ = file.getFileNameWithoutExtension();
+    currentLoadedUrl_ = inputUrl;
 
-    trackInfoBadge_.setText("Transforming: " + file.getFileName() + "...", juce::dontSendNotification);
+    const auto fileName = inputUrl.getFileName();
+    currentTrackTitle_ = fileName.upToLastOccurrenceOf(".", false, true);
+    if (currentTrackTitle_.isEmpty()) currentTrackTitle_ = "Track";
+
+    trackInfoBadge_.setText("Transforming: " + fileName + "...", juce::dontSendNotification);
     repaint();
 
     try {
-        auto decoded = audio::AudioDecoder::decodeAnyAudioFile(file.getFullPathName().toRawUTF8());
+        std::string localFilePath;
+        if (audio::AudioDecoder::canUseFilesystemReader(inputUrl.toString(false).toStdString())
+            && inputUrl.isLocalFile()) {
+            localFilePath = inputUrl.getLocalFile().getFullPathName().toStdString();
+        }
+        const auto inputReference = audio::AudioDecoder::inputReferenceFromUrl(
+            inputUrl.toString(false).toStdString(), localFilePath);
+        auto decoded = audio::AudioDecoder::decodeAnyAudioFile(inputReference);
         currentDurationSecs_ = static_cast<double>(decoded.channels[0].size()) / decoded.sampleRate;
         auto wavBytes = audio::AudioExporter::encodeWav24Bit(decoded.channels, decoded.sampleRate);
         contracts::RightsAttestation attestation(attestedBasis_, true, "project-mobile");
@@ -251,7 +261,7 @@ void MobileMainComponent::processImportedFile(const juce::File& file) {
         juce::String bpmText = juce::String(output.analysisManifest.key.c_str()) + " • " +
                                juce::String(output.analysisManifest.bpm, 1) + " BPM • " +
                                juce::String(static_cast<int>(currentDurationSecs_)) + "s";
-        trackInfoBadge_.setText(file.getFileName() + " [" + bpmText + "]", juce::dontSendNotification);
+        trackInfoBadge_.setText(fileName + " [" + bpmText + "]", juce::dontSendNotification);
         trackInfoBadge_.setColour(juce::Label::textColourId, ui::ReggaeWaveTheme::accentGreen);
 
         currentState_ = contracts::ConversionJobState::Completed;
